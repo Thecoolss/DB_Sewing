@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Sewing Shop Ops{% endblock title %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block tools %}
+    <div class="tools">
+        <a class="btn primary" href="{{ admin_root }}shop/order/">Browse orders (admin)</a>
+        {% if filter_name != "delivered" %}
+            <a class="btn" href="{% url 'shop:order_monitor' 'delivered' %}">View delivered list</a>
+        {% endif %}
+    </div>
+{% endblock tools %}
+
+{% block content %}
+    {% if filter_name == "overdue" %}
+        <div class="muted" style="margin-top:-6px;margin-bottom:12px;line-height:1.55;">
+            These rows intentionally include only orders currently in draft or production with a missed due date. Use Open in admin after triage updates.
+        </div>
+    {% endif %}
+
+    <div class="table-tools">
+        <div class="mini">{{ orders|length }} row{{ orders|length|pluralize }}</div>
+        <div class="mini">Today <span class="mono">{{ today }}</span></div>
+    </div>
+
+    <div class="table-wrap">
+        <table role="grid" aria-label="Orders table">
+            <thead>
+                <tr>
+                    <th>Reference</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Schedule</th>
+                    <th>Due</th>
+                    <th style="width: 160px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in orders %}
+                {% with order=row.model %}
+                    <tr>
+                        <td>
+                            {% if row.overdue %}
+                                <span class="badge danger" title="Overdue while still active">Overdue</span>
+                            {% endif %}
+                            <div class="mono" style="margin-top:10px;"><a href="{{ row.admin_change_url }}">{{ order.reference }}</a></div>
+                        </td>
+                        <td>
+                            {{ order.customer.full_name }}
+                            <div class="muted" style="margin-top:10px;line-height:1.45;">
+                                Placed {{ order.order_date }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge gray">{{ row.status_label }}</span>
+                            {% if order.notes %}
+                                <div class="muted" style="margin-top:10px;line-height:1.45;">{{ order.notes|truncatechars:160 }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {{ row.due_badge_class }}" title="Relative to today">
+                                {% if row.due_badge_days > 0 %}+{% endif %}{{ row.due_badge_days }}d
+                            </span>
+                            <div class="muted" style="margin-top:10px;">
+                                Ends {{ order.due_date }}
+                            </div>
+                        </td>
+                        <td>{{ order.due_date }}</td>
+                        <td>
+                            <div style="display:grid;gap:10px;">
+                                <a class="btn primary" href="{{ row.admin_change_url }}">Open in admin</a>
+                                <a class="btn" href="/admin/shop/workticket/?q={{ order.reference|urlencode }}">Find tickets</a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endwith %}
+            {% empty %}
+                <tr><td colspan="6" class="muted" style="padding:16px;">No orders in this queue yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

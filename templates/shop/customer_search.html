@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Customers | Sewing Shop Ops{% endblock title %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block content %}
+<form method="get" aria-label="Customer search">
+    <div class="form-row search">
+        <div>
+            <label class="muted" for="q" style="display:block;margin:0 0 8px 3px;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">
+                Customer name contains
+            </label>
+            <input class="input" id="q" name="q" value="{{ query }}" placeholder="e.g. Nassar">
+        </div>
+        <div style="display:flex;align-items:end;">
+            <button class="btn primary" style="width:100%;justify-content:center;" type="submit">Search</button>
+        </div>
+    </div>
+</form>
+
+<div class="mini" style="margin-bottom:12px;">
+    Showing up to {{ customers|length }} matches.
+</div>
+
+<div class="table-wrap">
+<table role="grid" aria-label="Customer results">
+    <thead>
+    <tr>
+        <th>Customer</th>
+        <th>Contact</th>
+        <th style="width: 160px;">History</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for customer in customers %}
+        <tr>
+            <td><strong>{{ customer.full_name }}</strong></td>
+            <td>
+                <div><span class="muted">Phone</span> {{ customer.phone|default:"-" }}</div>
+                <div style="margin-top:10px;"><span class="muted">Email</span> {{ customer.email|default:"-" }}</div>
+            </td>
+            <td><a class="btn primary" style="justify-content:center;" href="{% url 'shop:customer_history' customer.id %}">Open timeline</a></td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="3" class="muted" style="padding:14px;">No customers found.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock content %}

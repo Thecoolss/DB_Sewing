@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    env:
+      # CI should not rely on secrets; Django settings fall back to local SQLite automatically.
+      SECRET_KEY: ci-not-secret
+      DEBUG: "True"
+      ALLOWED_HOSTS: "127.0.0.1,localhost"
+      USE_SQLITE: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Django checks
+        run: python manage.py check
+
+      - name: Apply migrations (SQLite fallback)
+        run: python manage.py migrate --noinput
+
+      - name: Run tests
+        run: python manage.py test shop

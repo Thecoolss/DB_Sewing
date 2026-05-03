@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}{{ customer.full_name }} | Sewing Shop Ops{% endblock title %}
+{% block page_title %}{{ customer.full_name }}{% endblock page_title %}
+
+{% block tools %}
+    <div class="tools">
+        <a class="btn" href="/admin/shop/order/?customer__id__exact={{ customer.id }}">Open orders filtered (admin)</a>
+        <a class="btn primary" href="{% url 'shop:customer_search' %}">Back to lookup</a>
+    </div>
+{% endblock tools %}
+
+{% block content %}
+<p class="muted" style="margin-top:-6px;margin-bottom:12px;">
+    <strong>{{ customer.full_name }}</strong>
+    {% if customer.phone %}<span aria-hidden="true"> · </span>Phone {{ customer.phone }}{% endif %}
+    {% if customer.email %}<span aria-hidden="true"> · </span>Email {{ customer.email }}{% endif %}
+</p>
+
+<div class="table-wrap">
+<table role="grid" aria-label="Customer order history">
+    <thead>
+    <tr>
+        <th>Order Ref</th>
+        <th>Status</th>
+        <th>Due Date</th>
+        <th>Garments</th>
+        <th>Tickets</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for order in orders %}
+        <tr>
+            <td class="mono"><a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a></td>
+            <td>{{ order.get_status_display }}</td>
+            <td>{{ order.due_date }}</td>
+            <td>{{ order.garments.count }}</td>
+            <td>
+                {% for garment in order.garments.all %}
+                    {% for ticket in garment.tickets.all %}
+                        {{ ticket.ticket_number }} ({{ ticket.get_current_stage_display }})<br>
+                    {% endfor %}
+                {% empty %}
+                    -
+                {% endfor %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="5" class="muted" style="padding:14px;">No orders yet for this customer.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock content %}

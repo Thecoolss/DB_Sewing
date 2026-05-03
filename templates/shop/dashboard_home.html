@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% url 'shop:order_monitor' 'overdue' as overdue_url %}
+
+{% block title %}Dashboard | Sewing Shop Ops{% endblock title %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block tools %}
+    <div class="tools">
+        <a class="btn primary" href="{{ overdue_url }}">Review overdue queue</a>
+        <a class="btn" href="/admin/">Open admin</a>
+    </div>
+{% endblock tools %}
+
+{% block content %}
+<section class="kpi-grid" aria-label="Key workload metrics">
+    <div class="kpi-card">
+        <div class="kpi-label">Pending</div>
+        <div class="kpi-value">{{ pending_count }}</div>
+        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'pending' %}">Browse pending</a></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">In production</div>
+        <div class="kpi-value">{{ in_production_count }}</div>
+        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'production' %}">Browse in production</a></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Overdue</div>
+        <div class="kpi-value">{{ overdue_count }}</div>
+        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'overdue' %}">Open overdue list</a></div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Completed</div>
+        <div class="kpi-value">{{ completed_count }}</div>
+        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'completed' %}">Browse completed</a></div>
+    </div>
+</section>
+
+<h3 class="page-subtitle" style="margin-top: 6px; margin-bottom: 10px; color: var(--text); letter-spacing:-0.01em;">Ticket status mix</h3>
+<div class="table-wrap">
+<table>
+    <thead>
+    <tr>
+        <th>Stage</th>
+        <th>Total Tickets</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for item in ticket_summary %}
+        <tr>
+            <td>{{ item.label }}</td>
+            <td>{{ item.total }}</td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="2" class="muted">No tickets yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<h3 class="page-subtitle" style="margin-top: 22px; margin-bottom: 10px; color: var(--text); letter-spacing:-0.01em;">Recent orders</h3>
+<div class="table-wrap">
+<table>
+    <thead>
+    <tr>
+        <th>Reference</th>
+        <th>Customer</th>
+        <th>Status</th>
+        <th>Due Date</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for order in recent_orders %}
+        <tr>
+            <td class="mono">
+                <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
+            </td>
+            <td>{{ order.customer.full_name }}</td>
+            <td>{{ order.get_status_display }}</td>
+            <td>{{ order.due_date }}</td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="4" class="muted">No orders found.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock content %}

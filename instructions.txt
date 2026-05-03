@@ -1,0 +1,220 @@
+Database Project Instructions
+Project: Sewing Shop Management System
+This project requires each team to design and implement a complete management system
+for a sewing shop using Django and at least one relational database. Teams may use
+other technologies only to complement the main system, not to replace the relational
+database or the Django backend.
+The goal is to build a working application that supports the daily operations of a sewing
+shop, including customer orders, work tickets, production tracking, and delivery
+management. The system should be implemented with Django and use Django Unfold as
+part of the interface/admin experience. The application must include several clearly defined
+workflows and proper technical documentation.
+General Objective
+Design and develop a system that helps a sewing shop organize and manage its operations
+from the moment a customer places an order until the final product is delivered.
+The system should support business processes such as:
+● registering customers
+● creating and updating orders
+● generating work tickets
+● assigning or tracking production stages
+● managing item status
+● recording measurements, materials, or garment details
+● tracking completion and delivery
+The final solution must be functional, consistent, and supported by a well-designed relational
+database.
+Required Technologies
+The project must include:
+● Django as the main backend framework
+● A relational database such as PostgreSQL, MySQL
+● Django ORM for model design and database interaction
+● Django Unfold integrated into the project
+● Additional tools or frameworks only as complements
+Functional Requirements
+At minimum, the system should include the following modules or features.
+1. Customer Management
+The system should allow the sewing shop to:
+● register customers
+● store contact information
+● keep relevant notes or preferences
+● access order history by customer
+2. Order Management
+The system should allow users to:
+● create new orders
+● associate an order with a customer
+● record order date, due date, and order status
+● include one or more garments or items within an order
+● edit and update order information
+3. Ticket or Work Order Management
+The system should generate and manage production tickets or work orders for each garment
+or task. These tickets should help organize what needs to be produced and how it moves
+through the process.
+A ticket may include:
+● garment type
+● measurements
+● fabric or material information
+● color
+● design notes
+● assigned worker or team
+● production status
+● priority
+● deadlines
+4. Production Tracking
+The system should allow the sewing shop to track the progress of each item or ticket through
+multiple production stages.
+Example stages may include:
+● order received
+● design confirmed
+● cutting
+● sewing
+● finishing
+● quality check
+● ready for delivery
+● delivered
+Teams may define their own stages as long as they are consistent and useful.
+5. Delivery and Completion
+The system should record:
+● whether the order is completed
+● whether it has been delivered
+● delivery date
+● final observations or comments
+6. Reporting or Monitoring
+The system should include at least some way to monitor operations, such as:
+● pending orders
+● orders in production
+● overdue orders
+● completed orders
+● ticket status summary
+● customer order history
+This may be implemented through Django views, admin dashboards, filters, or reports.
+Workflow Requirement
+The application must include several documented workflows. These workflows should
+represent realistic business processes in the sewing shop.
+At minimum, the project should include at least 3 complete workflows, such as:
+Workflow 1: Customer Order Creation
+A staff user registers a customer, creates an order, adds garment details, and sets a due
+date.
+Workflow 2: Ticket Creation and Production Follow-up
+The system creates one or more work tickets from the order, and staff can update the
+production stage as the garment moves through the process.
+Workflow 3: Order Completion and Delivery
+Once production is finished, the order is marked as completed, prepared for pickup or
+delivery, and closed once delivered.
+Teams may also include additional workflows, for example:
+● order modification after customer review
+● quality control and corrections
+● assignment of work to employees
+● material usage tracking
+● urgent order handling
+Database Requirements
+The project must include a properly designed relational database.
+The database must:
+● identify the main entities of the system
+● define relationships clearly
+● use primary and foreign keys correctly
+● minimize redundancy
+● be normalized appropriately
+● support the business logic of the system
+Possible entities may include:
+● Customer
+● Order
+● OrderItem or Garment
+● Ticket or WorkOrder
+● ProductionStage or StatusHistory
+● Employee or Worker
+● Delivery
+● Material
+● Measurement
+Teams do not need to use these exact entities, but their design should reflect the needs of
+the sewing shop system.
+Required Deliverables
+Each team must submit the following:
+1. Problem Description
+A short document explaining:
+● the problem being solved
+● the context of the sewing shop
+● the scope of the system
+● the intended users
+2. Requirements Description
+A clear explanation of:
+● main features
+● business rules
+● modules
+● workflows supported by the system
+3. Normalized Database Design
+A description of the database structure, including:
+● entities
+● attributes
+● keys
+● relationships
+● normalization decisions
+4. ERD
+A complete Entity-Relationship Diagram showing:
+● entities
+● relationships
+● cardinalities
+● primary keys
+● foreign keys
+5. Working Django Application
+The project must include a functional application with:
+● models
+● views
+● forms or admin configuration
+● database migrations
+● Django Unfold integration
+● working workflows
+6. Source Code and Dependencies
+The submission must include:
+● complete source code
+● dependency file such as requirements.txt
+● instructions to install and run the project
+● any environment or setup notes needed
+7. Workflow Documentation
+Teams must document the main workflows step by step, showing how users interact with the
+system.
+8. Optional Demo Data
+It is recommended to include sample data so the system can be tested easily.
+Expected Quality Standards
+The project will be evaluated not only on whether it runs, but also on the quality of its design
+and implementation.
+A strong project should demonstrate:
+● a realistic and useful problem scope
+● a well-structured database
+● correct use of Django models and relationships
+● meaningful workflows
+● a usable and organized system
+● clear documentation
+● consistency between documentation, ERD, schema, and code
+Suggested Business Rules
+Teams may adapt these rules, but the project should include clear business logic. For
+example:
+● an order must belong to one customer
+● an order may contain multiple garments or items
+● each garment may generate one or more production tickets
+● tickets must have a current status
+● completed orders should not remain in active production
+● delivered orders should store the delivery date
+● due dates should be tracked for production follow-up
+Submission Format
+The final submission should include:
+● written report in PDF or DOCX format
+● ERD image or embedded diagram
+● source code repository or compressed project folder
+● dependency file
+● setup instructions
+● any additional files needed to run the application
+Example Scope
+A possible system could include:
+● customer registration
+● order creation for custom clothing
+● garment measurement records
+● ticket generation for each garment
+● production progress updates
+● delivery tracking
+● administrative monitoring of pending and completed work
+Notes
+● The relational database must be central to the project.
+● Teams may use additional technologies, but the core system must remain based on
+Django and a relational database.
+● The project must be functional, not just conceptual.
+● The documentation must match the implementation.
+● The ERD, normalization, and code should be consistent with each other.
