@@ -4,3 +4,9 @@ __pycache__/
 db.sqlite3
 .env
 staticfiles/
+
+# Local-only / coursework materials (not published on GitHub)
+CONTRIBUTING.md
+SECURITY.md
+instructions.txt
+Database Project Instructions - Sewing.pdf
