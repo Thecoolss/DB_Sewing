@@ -4,9 +4,10 @@
 
 1. Staff creates or updates a customer profile.
 2. Staff creates an order linked to the customer and sets due date/status.
-3. Staff adds one or more garments to the order.
-4. Staff records measurements and materials for each garment.
-5. Order enters draft or production state.
+3. Staff adds one or more garments to the order, including garment type and primary material.
+4. Staff can provide an initial measurement directly while creating garment rows in the order form.
+5. Additional measurements and detailed materials can be managed on the garment record.
+6. Order enters draft or production state.
 
 ## Workflow 2: Ticket Creation and Production Follow-up
 

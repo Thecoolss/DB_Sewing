@@ -1,6 +1,8 @@
+from django import forms
 from django.contrib import admin, messages
 from django.utils import timezone
-from unfold.admin import ModelAdmin, TabularInline
+from django.utils.html import format_html, format_html_join
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
 
 from .models import (
     Customer,
@@ -41,10 +43,103 @@ class GarmentMaterialInline(TabularInline):
     extra = 1
 
 
-class GarmentInline(TabularInline):
+class GarmentInlineForm(forms.ModelForm):
+    initial_measurement_id = forms.IntegerField(
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    initial_measurement_name = forms.CharField(
+        required=False,
+        label="Initial measurement name",
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Chest"}),
+    )
+    initial_measurement_value = forms.DecimalField(
+        required=False,
+        max_digits=8,
+        decimal_places=2,
+        min_value=0.01,
+        label="Initial measurement value",
+        widget=forms.NumberInput(attrs={"placeholder": "e.g. 92.5"}),
+    )
+    initial_measurement_unit = forms.CharField(
+        required=False,
+        max_length=10,
+        initial="cm",
+        label="Initial measurement unit",
+        widget=forms.TextInput(attrs={"placeholder": "cm"}),
+    )
+
+    class Meta:
+        model = Garment
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            first_measurement = self.instance.measurements.order_by("id").first()
+            if first_measurement:
+                self.fields["initial_measurement_id"].initial = first_measurement.id
+                self.fields["initial_measurement_name"].initial = first_measurement.name
+                self.fields["initial_measurement_value"].initial = first_measurement.value
+                self.fields["initial_measurement_unit"].initial = first_measurement.unit
+
+    def clean(self):
+        cleaned = super().clean()
+        name = (cleaned.get("initial_measurement_name") or "").strip()
+        value = cleaned.get("initial_measurement_value")
+        unit = (cleaned.get("initial_measurement_unit") or "").strip()
+
+        if value is not None and not name:
+            self.add_error(
+                "initial_measurement_name",
+                "Measurement name is required when providing a value.",
+            )
+
+        if name and value is None:
+            self.add_error(
+                "initial_measurement_value",
+                "Measurement value is required when providing a name.",
+            )
+
+        if name and not unit:
+            self.add_error(
+                "initial_measurement_unit",
+                "Measurement unit is required when providing a name.",
+            )
+
+        return cleaned
+
+
+class GarmentInline(StackedInline):
     model = Garment
+    form = GarmentInlineForm
     extra = 1
-    fields = ("garment_type", "primary_material", "quantity", "color", "design_notes")
+    fieldsets = (
+        (
+            "Garment details",
+            {
+                "fields": (
+                    ("garment_type", "primary_material"),
+                    ("quantity", "color"),
+                    "design_notes",
+                )
+            },
+        ),
+        (
+            "Initial measurement (optional)",
+            {
+                "description": "Captured during order entry and saved to the Measurement table.",
+                "fields": (
+                    "initial_measurement_id",
+                    (
+                        "initial_measurement_name",
+                        "initial_measurement_value",
+                        "initial_measurement_unit",
+                    ),
+                ),
+            },
+        ),
+    )
 
 
 @admin.register(Customer)
@@ -81,6 +176,18 @@ class OrderAdmin(StaffEditableModelAdmin):
     list_filter = ("status", "order_date", "due_date", "assigned_employee")
     search_fields = ("reference", "customer__full_name", "assigned_employee__full_name")
     date_hierarchy = "order_date"
+    readonly_fields = ("reference", "completed_at", "measurement_overview")
+    fields = (
+        "reference",
+        "customer",
+        "assigned_employee",
+        "order_date",
+        "due_date",
+        "status",
+        "completed_at",
+        "notes",
+        "measurement_overview",
+    )
     inlines = (GarmentInline,)
     actions = ("generate_work_tickets", "mark_as_in_production", "mark_as_completed")
 
@@ -126,6 +233,61 @@ class OrderAdmin(StaffEditableModelAdmin):
             order.save()
             updated += 1
         self.message_user(request, f"Completed {updated} order(s).", messages.SUCCESS)
+
+    def save_formset(self, request, form, formset, change):
+        super().save_formset(request, form, formset, change)
+        for inline_form in formset.forms:
+            if not hasattr(inline_form, "cleaned_data"):
+                continue
+            if inline_form.cleaned_data.get("DELETE"):
+                continue
+
+            garment = inline_form.instance
+            if not garment.pk:
+                continue
+
+            measurement_id = inline_form.cleaned_data.get("initial_measurement_id")
+            name = (inline_form.cleaned_data.get("initial_measurement_name") or "").strip()
+            value = inline_form.cleaned_data.get("initial_measurement_value")
+            unit = (inline_form.cleaned_data.get("initial_measurement_unit") or "").strip()
+
+            if name and value is not None:
+                if measurement_id:
+                    measurement = Measurement.objects.filter(
+                        pk=measurement_id,
+                        garment=garment,
+                    ).first()
+                    if measurement:
+                        measurement.name = name
+                        measurement.value = value
+                        measurement.unit = unit or "cm"
+                        measurement.full_clean()
+                        measurement.save()
+                        continue
+
+                Measurement.objects.update_or_create(
+                    garment=garment,
+                    name=name,
+                    defaults={"value": value, "unit": unit or "cm"},
+                )
+
+    @admin.display(description="Measurements on this order")
+    def measurement_overview(self, obj):
+        if not obj or not obj.pk:
+            return "Save order first to view/edit garment measurements."
+
+        entries = []
+        garments = obj.garments.prefetch_related("measurements")
+        for garment in garments:
+            measurements = ", ".join(
+                f"{m.name}: {m.value}{m.unit}" for m in garment.measurements.all()
+            ) or "No measurements yet"
+            entries.append(f"{garment.garment_type}: {measurements}")
+
+        if not entries:
+            return "No garments yet."
+
+        return format_html_join("<br>", "{}", ((entry,) for entry in entries))
 
 
 @admin.register(Garment)
@@ -213,3 +375,10 @@ class DeliveryAdmin(StaffEditableModelAdmin):
     list_display = ("order", "method", "status", "scheduled_date", "delivered_date")
     list_filter = ("status", "method", "scheduled_date")
     search_fields = ("order__reference", "order__customer__full_name")
+
+
+@admin.register(Measurement)
+class MeasurementAdmin(StaffEditableModelAdmin):
+    list_display = ("garment", "name", "value", "unit", "notes")
+    list_filter = ("unit", "name")
+    search_fields = ("garment__order__reference", "garment__garment_type__name", "name")
