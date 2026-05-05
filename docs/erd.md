@@ -3,7 +3,10 @@
 ```mermaid
 erDiagram
     Customer ||--o{ Order : places
+    Employee ||--o{ Order : coordinates
     Order ||--|{ Garment : contains
+    GarmentType ||--o{ Garment : classifies
+    Material ||--o{ Garment : primary_material
     Garment ||--o{ WorkTicket : generates
     WorkTicket ||--o{ StatusHistory : records
     Employee ||--o{ WorkTicket : assigned_to

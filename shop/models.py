@@ -49,6 +49,18 @@ class Material(models.Model):
         return self.name
 
 
+class GarmentType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Order(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
@@ -62,6 +74,13 @@ class Order(models.Model):
         Customer,
         on_delete=models.PROTECT,
         related_name="orders",
+    )
+    assigned_employee = models.ForeignKey(
+        Employee,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_orders",
     )
     order_date = models.DateField(default=timezone.now)
     due_date = models.DateField()
@@ -82,6 +101,11 @@ class Order(models.Model):
     def clean(self):
         if self.due_date < self.order_date:
             raise ValidationError({"due_date": "Due date must be on/after order date."})
+
+        if self.assigned_employee and not self.assigned_employee.active:
+            raise ValidationError(
+                {"assigned_employee": "Orders can only be assigned to active employees."}
+            )
 
         if (
             self.pk
@@ -111,7 +135,19 @@ class Order(models.Model):
 
 class Garment(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="garments")
-    garment_type = models.CharField(max_length=100)
+    garment_type = models.ForeignKey(
+        GarmentType,
+        on_delete=models.PROTECT,
+        related_name="garments",
+    )
+    primary_material = models.ForeignKey(
+        Material,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="primary_garments",
+        help_text="Main material chosen during order entry. Use detailed materials for quantities.",
+    )
     quantity = models.PositiveIntegerField(default=1)
     color = models.CharField(max_length=50, blank=True)
     design_notes = models.TextField(blank=True)
@@ -151,6 +187,10 @@ class Measurement(models.Model):
     def __str__(self):
         return f"{self.garment}: {self.name}={self.value}{self.unit}"
 
+    def clean(self):
+        if self.value <= 0:
+            raise ValidationError({"value": "Measurement value must be greater than zero."})
+
 
 class GarmentMaterial(models.Model):
     garment = models.ForeignKey(
@@ -176,6 +216,10 @@ class GarmentMaterial(models.Model):
 
     def __str__(self):
         return f"{self.material.name} for {self.garment}"
+
+    def clean(self):
+        if self.quantity <= 0:
+            raise ValidationError({"quantity": "Material quantity must be greater than zero."})
 
 
 class WorkTicket(models.Model):
@@ -228,6 +272,17 @@ class WorkTicket(models.Model):
 
     def __str__(self):
         return self.ticket_number
+
+    def clean(self):
+        if self.deadline < self.garment.order.order_date:
+            raise ValidationError(
+                {"deadline": "Ticket deadline must be on/after the order date."}
+            )
+
+        if self.assigned_worker and not self.assigned_worker.active:
+            raise ValidationError(
+                {"assigned_worker": "Tickets can only be assigned to active employees."}
+            )
 
     @property
     def is_overdue(self):
@@ -328,6 +383,16 @@ class Delivery(models.Model):
         if self.status == self.Status.DELIVERED and not self.delivered_date:
             raise ValidationError(
                 {"delivered_date": "Delivered date is required once status is Delivered."}
+            )
+
+        if self.scheduled_date and self.scheduled_date < self.order.order_date:
+            raise ValidationError(
+                {"scheduled_date": "Scheduled delivery cannot be before the order date."}
+            )
+
+        if self.delivered_date and self.delivered_date < self.order.order_date:
+            raise ValidationError(
+                {"delivered_date": "Delivered date cannot be before the order date."}
             )
 
     def save(self, *args, **kwargs):

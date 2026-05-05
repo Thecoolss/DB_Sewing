@@ -4,7 +4,7 @@
 
 - Customer registration and profile management.
 - Order management with due dates, statuses, and notes.
-- Multi-item garment support per order.
+- Multi-item garment support per order, including garment type and primary material selection.
 - Work ticket generation and tracking by production stage.
 - Admin workflow actions that generate missing tickets from selected orders or garments.
 - Worker assignment and ticket prioritization.
@@ -20,6 +20,9 @@
 5. Completed or delivered orders cannot keep tickets in active production stages.
 6. Delivered deliveries require a delivery date.
 7. Due dates are mandatory and used to detect overdue work.
+8. Orders and tickets can only be assigned to active employees.
+9. Measurement and material quantities must be greater than zero.
+10. Delivery dates cannot be before the order date.
 
 ## Modules
 

@@ -1,9 +1,20 @@
 from datetime import timedelta
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Customer, Delivery, Garment, Order, WorkTicket
+from .models import (
+    Customer,
+    Delivery,
+    Employee,
+    Garment,
+    GarmentType,
+    Material,
+    Measurement,
+    Order,
+    WorkTicket,
+)
 
 
 class WorkflowAutomationTests(TestCase):
@@ -13,9 +24,12 @@ class WorkflowAutomationTests(TestCase):
             customer=self.customer,
             due_date=timezone.localdate() + timedelta(days=7),
         )
+        self.garment_type = GarmentType.objects.create(name="Dress")
+        self.material = Material.objects.create(name="Cotton", unit="meters")
         self.garment = Garment.objects.create(
             order=self.order,
-            garment_type="Dress",
+            garment_type=self.garment_type,
+            primary_material=self.material,
             quantity=1,
         )
 
@@ -36,5 +50,22 @@ class WorkflowAutomationTests(TestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.Status.DELIVERED)
         self.assertIsNotNone(delivery.delivered_date)
+
+    def test_inactive_employee_cannot_be_assigned_to_order(self):
+        inactive = Employee.objects.create(full_name="Inactive Worker", active=False)
+        self.order.assigned_employee = inactive
+
+        with self.assertRaises(ValidationError):
+            self.order.full_clean()
+
+    def test_measurement_value_must_be_positive(self):
+        measurement = Measurement(
+            garment=self.garment,
+            name="Chest",
+            value=0,
+        )
+
+        with self.assertRaises(ValidationError):
+            measurement.full_clean()
 
 # Create your tests here.

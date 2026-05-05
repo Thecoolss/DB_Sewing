@@ -9,6 +9,7 @@ from shop.models import (
     Delivery,
     Employee,
     Garment,
+    GarmentType,
     GarmentMaterial,
     Material,
     Measurement,
@@ -33,6 +34,11 @@ class Command(BaseCommand):
             material, _ = Material.objects.get_or_create(name=material_name, defaults={"unit": "units"})
             materials.append(material)
 
+        garment_types = []
+        for type_name in ["Dress", "Shirt", "Skirt", "Blazer"]:
+            garment_type, _ = GarmentType.objects.get_or_create(name=type_name)
+            garment_types.append(garment_type)
+
         for idx in range(1, 6):
             customer, _ = Customer.objects.get_or_create(
                 full_name=f"Customer {idx}",
@@ -47,6 +53,7 @@ class Command(BaseCommand):
                 customer=customer,
                 due_date=today + timedelta(days=7 + idx),
                 defaults={
+                    "assigned_employee": choice(workers),
                     "status": choice(
                         [
                             Order.Status.DRAFT,
@@ -61,8 +68,9 @@ class Command(BaseCommand):
             for garment_idx in range(1, 3):
                 garment, _ = Garment.objects.get_or_create(
                     order=order,
-                    garment_type=f"Custom Dress {garment_idx}",
+                    garment_type=choice(garment_types),
                     defaults={
+                        "primary_material": choice(materials),
                         "quantity": randint(1, 2),
                         "color": choice(["Blue", "Black", "Green"]),
                         "design_notes": "Slim fit with simple lining.",

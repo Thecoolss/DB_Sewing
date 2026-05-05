@@ -7,6 +7,7 @@ from .models import (
     Delivery,
     Employee,
     Garment,
+    GarmentType,
     GarmentMaterial,
     Material,
     Measurement,
@@ -14,6 +15,20 @@ from .models import (
     StatusHistory,
     WorkTicket,
 )
+
+
+class StaffEditableModelAdmin(ModelAdmin):
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_staff or request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_staff or request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_staff or request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_staff or request.user.is_superuser
 
 
 class MeasurementInline(TabularInline):
@@ -29,34 +44,42 @@ class GarmentMaterialInline(TabularInline):
 class GarmentInline(TabularInline):
     model = Garment
     extra = 1
-    fields = ("garment_type", "quantity", "color", "design_notes")
+    fields = ("garment_type", "primary_material", "quantity", "color", "design_notes")
 
 
 @admin.register(Customer)
-class CustomerAdmin(ModelAdmin):
+class CustomerAdmin(StaffEditableModelAdmin):
     list_display = ("full_name", "phone", "email", "created_at")
+    list_display_links = ("full_name",)
     search_fields = ("full_name", "phone", "email")
     ordering = ("full_name",)
 
 
 @admin.register(Employee)
-class EmployeeAdmin(ModelAdmin):
+class EmployeeAdmin(StaffEditableModelAdmin):
     list_display = ("full_name", "role", "active", "phone")
     list_filter = ("active", "role")
     search_fields = ("full_name", "role", "phone")
 
 
 @admin.register(Material)
-class MaterialAdmin(ModelAdmin):
+class MaterialAdmin(StaffEditableModelAdmin):
     list_display = ("name", "unit", "created_at")
     search_fields = ("name",)
 
 
+@admin.register(GarmentType)
+class GarmentTypeAdmin(StaffEditableModelAdmin):
+    list_display = ("name", "active", "description")
+    list_filter = ("active",)
+    search_fields = ("name", "description")
+
+
 @admin.register(Order)
-class OrderAdmin(ModelAdmin):
-    list_display = ("reference", "customer", "order_date", "due_date", "status")
-    list_filter = ("status", "order_date", "due_date")
-    search_fields = ("reference", "customer__full_name")
+class OrderAdmin(StaffEditableModelAdmin):
+    list_display = ("reference", "customer", "assigned_employee", "order_date", "due_date", "status")
+    list_filter = ("status", "order_date", "due_date", "assigned_employee")
+    search_fields = ("reference", "customer__full_name", "assigned_employee__full_name")
     date_hierarchy = "order_date"
     inlines = (GarmentInline,)
     actions = ("generate_work_tickets", "mark_as_in_production", "mark_as_completed")
@@ -77,18 +100,39 @@ class OrderAdmin(ModelAdmin):
 
     @admin.action(description="Mark selected orders as In Production")
     def mark_as_in_production(self, request, queryset):
-        queryset.update(status=Order.Status.IN_PRODUCTION)
+        updated = 0
+        for order in queryset:
+            order.status = Order.Status.IN_PRODUCTION
+            try:
+                order.full_clean()
+            except Exception as exc:
+                self.message_user(request, f"{order}: {exc}", messages.ERROR)
+                continue
+            order.save()
+            updated += 1
+        self.message_user(request, f"Updated {updated} order(s).", messages.SUCCESS)
 
     @admin.action(description="Mark selected orders as Completed")
     def mark_as_completed(self, request, queryset):
-        queryset.update(status=Order.Status.COMPLETED, completed_at=timezone.now())
+        updated = 0
+        for order in queryset:
+            order.status = Order.Status.COMPLETED
+            order.completed_at = timezone.now()
+            try:
+                order.full_clean()
+            except Exception as exc:
+                self.message_user(request, f"{order}: {exc}", messages.ERROR)
+                continue
+            order.save()
+            updated += 1
+        self.message_user(request, f"Completed {updated} order(s).", messages.SUCCESS)
 
 
 @admin.register(Garment)
-class GarmentAdmin(ModelAdmin):
-    list_display = ("garment_type", "order", "quantity", "color")
-    list_filter = ("garment_type", "color")
-    search_fields = ("garment_type", "order__reference")
+class GarmentAdmin(StaffEditableModelAdmin):
+    list_display = ("garment_type", "primary_material", "order", "quantity", "color")
+    list_filter = ("garment_type", "primary_material", "color")
+    search_fields = ("garment_type__name", "primary_material__name", "order__reference")
     inlines = (MeasurementInline, GarmentMaterialInline)
     actions = ("generate_work_tickets",)
 
@@ -114,7 +158,7 @@ class StatusHistoryInline(TabularInline):
 
 
 @admin.register(WorkTicket)
-class WorkTicketAdmin(ModelAdmin):
+class WorkTicketAdmin(StaffEditableModelAdmin):
     list_display = (
         "ticket_number",
         "garment",
@@ -125,7 +169,7 @@ class WorkTicketAdmin(ModelAdmin):
         "is_overdue",
     )
     list_filter = ("current_stage", "priority", "deadline", "assigned_worker")
-    search_fields = ("ticket_number", "garment__order__reference", "garment__garment_type")
+    search_fields = ("ticket_number", "garment__order__reference", "garment__garment_type__name")
     inlines = (StatusHistoryInline,)
     actions = ("mark_ready_for_delivery", "mark_delivered")
 
@@ -158,14 +202,14 @@ class WorkTicketAdmin(ModelAdmin):
 
 
 @admin.register(StatusHistory)
-class StatusHistoryAdmin(ModelAdmin):
+class StatusHistoryAdmin(StaffEditableModelAdmin):
     list_display = ("ticket", "stage", "changed_by", "changed_at")
     list_filter = ("stage", "changed_at")
     search_fields = ("ticket__ticket_number", "comments")
 
 
 @admin.register(Delivery)
-class DeliveryAdmin(ModelAdmin):
+class DeliveryAdmin(StaffEditableModelAdmin):
     list_display = ("order", "method", "status", "scheduled_date", "delivered_date")
     list_filter = ("status", "method", "scheduled_date")
     search_fields = ("order__reference", "order__customer__full_name")
