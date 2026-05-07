@@ -414,3 +414,230 @@ button[class*="bg-primary"]:hover {
     border-radius: 8px !important;
     color: #fca5a5 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   POLISH — remove boxy/double-border artifacts
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Search bar: strip the outer wrapper box ───────────────────── */
+#changelist-search form > div,
+#changelist-search > div {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+#changelist-search form > div:focus-within,
+#changelist-search > div:focus-within {
+    border-color: rgba(16,185,129,0.50) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.10) !important;
+}
+/* The actual input inside — borderless, transparent */
+#searchbar,
+#changelist-search input[type="text"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--ss-text) !important;
+    padding: 8px 10px !important;
+}
+#searchbar:focus,
+#changelist-search input[type="text"]:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+/* Search icon colour */
+#searchbar-submit span {
+    color: var(--ss-muted) !important;
+}
+/* Keyboard shortcut hint — strip the pill box */
+#changelist-search kbd,
+#changelist-search .bg-base-50 {
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    color: var(--ss-muted) !important;
+    border-radius: 4px !important;
+}
+
+/* ── Fieldset inner border box — .form-rows ───────────────────── */
+.form-rows,
+.form-rows.aligned,
+fieldset .form-rows {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+/* ── Form row dividers — dashed borders look noisy ────────────── */
+.field-line,
+.field-row,
+[class*="field-line"],
+[class*="form-row"] {
+    border-color: rgba(255,255,255,0.06) !important;
+    border-style: solid !important;
+}
+
+/* ── Submit row — remove frosted box ──────────────────────────── */
+.submit-row > div,
+[class*="submit-row"] > div {
+    background: var(--ss-surface-2) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-top: 1px solid var(--ss-border) !important;
+}
+
+/* ── Section/app titles in sidebar — not boxes ────────────────── */
+.module h2,
+fieldset.module h2,
+.module > h2 {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    color: rgba(255,255,255,0.30) !important;
+    padding: 12px 16px 10px !important;
+}
+
+/* ── Action toolbar (bulk actions row) ─────────────────────────── */
+.actions,
+[class*="actions"] select,
+[class*="actions"] span {
+    background: var(--ss-surface-2) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: var(--ss-muted) !important;
+}
+.actions select {
+    border-radius: 7px !important;
+    padding: 5px 10px !important;
+}
+
+/* ── Filter sidebar (right side on list pages) ─────────────────── */
+#changelist-filter {
+    background: var(--ss-surface) !important;
+    border-left: 1px solid var(--ss-border) !important;
+    border-radius: 0 16px 16px 0 !important;
+}
+#changelist-filter h2,
+#changelist-filter h3 {
+    background: transparent !important;
+    color: var(--ss-muted) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.10em !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+}
+#changelist-filter li a,
+#changelist-filter ul li {
+    color: var(--ss-muted) !important;
+}
+#changelist-filter li a:hover,
+#changelist-filter li.selected a {
+    color: var(--ss-green-text) !important;
+    text-decoration: none !important;
+}
+
+/* ── Related-widget add/change icons beside FK fields ──────────── */
+.related-widget-wrapper a {
+    color: var(--ss-green-text) !important;
+    opacity: 0.7 !important;
+}
+.related-widget-wrapper a:hover { opacity: 1 !important; }
+
+/* ── Breadcrumb bar ────────────────────────────────────────────── */
+#breadcrumbs,
+.breadcrumbs,
+[class*="breadcrumb"] {
+    background: transparent !important;
+    color: var(--ss-muted) !important;
+    font-size: 12px !important;
+    border: none !important;
+    padding: 6px 0 !important;
+}
+[class*="breadcrumb"] a,
+#breadcrumbs a {
+    color: var(--ss-muted) !important;
+}
+[class*="breadcrumb"] a:hover { color: var(--ss-green-text) !important; }
+
+/* ── Date hierarchy bar ────────────────────────────────────────── */
+.xfull,
+#changelist .xfull {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ── "Recently added" object tools ────────────────────────────── */
+#object-tools,
+.object-tools {
+    background: transparent !important;
+}
+.object-tools a {
+    background: var(--ss-green-dim) !important;
+    border: 1px solid rgba(16,185,129,0.28) !important;
+    border-radius: 9999px !important;
+    color: var(--ss-green-text) !important;
+    padding: 6px 16px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+.object-tools a:hover {
+    background: rgba(16,185,129,0.25) !important;
+    text-decoration: none !important;
+}
+
+/* ── Inline tables inside forms ────────────────────────────────── */
+.inline-group {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    margin-bottom: 16px !important;
+}
+.inline-group h2 {
+    background: var(--ss-surface-2) !important;
+    color: var(--ss-muted) !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    padding: 10px 16px !important;
+    border-bottom: 1px solid var(--ss-border) !important;
+}
+.inline-group table {
+    background: transparent !important;
+}
+.inline-group thead th {
+    background: var(--ss-surface-2) !important;
+    color: var(--ss-muted) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.07em !important;
+}
+.inline-group tbody td, .inline-group tbody th {
+    border-color: rgba(255,255,255,0.05) !important;
+    color: var(--ss-text) !important;
+    background: transparent !important;
+}
+
+/* ── Select2 / autocomplete widgets ───────────────────────────── */
+.select2-container--default .select2-selection,
+.select2-selection {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 8px !important;
+    color: var(--ss-text) !important;
+}
+.select2-dropdown {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 10px !important;
+}
+.select2-results__option {
+    color: var(--ss-text) !important;
+}
+.select2-results__option--highlighted {
+    background: var(--ss-green-dim) !important;
+    color: var(--ss-green-text) !important;
+}
