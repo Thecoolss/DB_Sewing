@@ -9,62 +9,85 @@
 </head>
 <body>
 <div class="shell">
-<div class="container">
-    <div class="topbar">
+
+    <aside class="sidebar">
         <div class="brand">
             <div class="logo" aria-hidden="true">SS</div>
-            <div>
-                <h1>Sewing Shop Ops</h1>
-                <p class="tagline">Internal dashboards for coordinators and owners.</p>
+            <div class="brand-text">
+                <h1>SS Ops</h1>
+                <p class="tagline">Shop dashboard</p>
             </div>
         </div>
+
+        <nav class="nav" aria-label="Primary navigation">
+            <span class="nav-section">Overview</span>
+            <a class="nav-link{% if nav_key == 'dashboard' %} active{% endif %}" href="{% url 'shop:dashboard' %}">
+                <span class="nav-dot"></span> Dashboard
+            </a>
+
+            <span class="nav-section">Orders</span>
+            <a class="nav-link{% if nav_key == 'pending' %} active{% endif %}" href="{% url 'shop:order_monitor' 'pending' %}">
+                <span class="nav-dot"></span> Pending
+            </a>
+            <a class="nav-link{% if nav_key == 'production' %} active{% endif %}" href="{% url 'shop:order_monitor' 'production' %}">
+                <span class="nav-dot"></span> In production
+            </a>
+            <a class="nav-link{% if nav_key == 'overdue' %} active{% endif %}" href="{% url 'shop:order_monitor' 'overdue' %}">
+                <span class="nav-dot"></span> Overdue
+            </a>
+            <a class="nav-link{% if nav_key == 'completed' %} active{% endif %}" href="{% url 'shop:order_monitor' 'completed' %}">
+                <span class="nav-dot"></span> Completed
+            </a>
+            <a class="nav-link{% if nav_key == 'delivered' %} active{% endif %}" href="{% url 'shop:order_monitor' 'delivered' %}">
+                <span class="nav-dot"></span> Delivered
+            </a>
+
+            <span class="nav-section">Customers</span>
+            <a class="nav-link{% if nav_key == 'customers' %} active{% endif %}" href="{% url 'shop:customer_search' %}">
+                <span class="nav-dot"></span> Customers
+            </a>
+
+        </nav>
 
         {% if request.user.is_authenticated %}
-            <div class="user-chip" title="Logged-in Django user">
-                <div class="pill-muted">Signed in</div>
-                <div>
+        <div class="sidebar-footer">
+            <div class="user-chip">
+                <div class="user-avatar">{{ request.user.get_username|slice:":1"|upper }}</div>
+                <div class="user-info">
                     <strong>{{ request.user.get_username }}</strong>
-                    {% if request.user.is_superuser %}
-                        <div class="pill-muted">superuser</div>
-                    {% elif request.user.is_staff %}
-                        <div class="pill-muted">staff</div>
-                    {% endif %}
+                    <span class="pill-muted">
+                        {% if request.user.is_superuser %}superuser{% elif request.user.is_staff %}staff{% endif %}
+                    </span>
                 </div>
             </div>
+        </div>
         {% endif %}
+    </aside>
+
+    <div class="main-area">
+        <div class="topbar">
+            <div class="page-head">
+                <div>
+                    <h2 class="page-title">{% block page_title %}Overview{% endblock page_title %}</h2>
+                    {% if page_subtitle %}
+                        <p class="page-subtitle">{{ page_subtitle }}</p>
+                    {% endif %}
+                </div>
+                {% block tools %}{% endblock tools %}
+            </div>
+        </div>
+
+        <main class="main">
+            {% block content %}{% endblock content %}
+        </main>
+
+        {% block footer %}
+        <div class="footer">
+            Today: {{ today }}
+        </div>
+        {% endblock footer %}
     </div>
 
-    <nav class="nav" aria-label="Primary navigation">
-        <a class="nav-link{% if nav_key == 'dashboard' %} active{% endif %}" href="{% url 'shop:dashboard' %}">Dashboard</a>
-        <a class="nav-link{% if nav_key == 'pending' %} active{% endif %}" href="{% url 'shop:order_monitor' 'pending' %}">Pending</a>
-        <a class="nav-link{% if nav_key == 'production' %} active{% endif %}" href="{% url 'shop:order_monitor' 'production' %}">In production</a>
-        <a class="nav-link{% if nav_key == 'overdue' %} active{% endif %}" href="{% url 'shop:order_monitor' 'overdue' %}">Overdue</a>
-        <a class="nav-link{% if nav_key == 'completed' %} active{% endif %}" href="{% url 'shop:order_monitor' 'completed' %}">Completed</a>
-        <a class="nav-link{% if nav_key == 'delivered' %} active{% endif %}" href="{% url 'shop:order_monitor' 'delivered' %}">Delivered</a>
-        <a class="nav-link{% if nav_key == 'customers' %} active{% endif %}" href="{% url 'shop:customer_search' %}">Customers</a>
-        <a class="nav-link" href="/admin/">Django Admin</a>
-    </nav>
-
-    <main class="main">
-        <header class="page-head">
-            <div>
-                <h2 class="page-title">{% block page_title %}Overview{% endblock page_title %}</h2>
-                {% if page_subtitle %}
-                    <p class="page-subtitle">{{ page_subtitle }}</p>
-                {% endif %}
-            </div>
-            {% block tools %}{% endblock tools %}
-        </header>
-
-        {% block content %}{% endblock content %}
-    </main>
-
-    {% block footer %}
-        <div class="mini" style="margin-top:14px;color:var(--muted);">
-            Today’s date reference: {{ today }}
-        </div>
-    {% endblock footer %}
-</div>
 </div>
 </body>
 </html>

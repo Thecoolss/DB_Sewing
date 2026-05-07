@@ -95,8 +95,27 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 UNFOLD = {
-    "SITE_TITLE": "Sewing Shop Admin",
+    "SITE_TITLE": "Sewing Shop",
     "SITE_HEADER": "Sewing Shop",
     "SITE_SUBHEADER": "Operations Management",
     "SITE_SYMBOL": "content_cut",
+    "THEME": "dark",
+    "STYLES": [
+        lambda request: "/static/shop/admin_override.css",
+    ],
+    "COLORS": {
+        "primary": {
+            "50":  "240 253 244",
+            "100": "220 252 231",
+            "200": "187 247 208",
+            "300": "134 239 172",
+            "400": "74 222 128",
+            "500": "34 197 94",
+            "600": "22 163 74",
+            "700": "15 118 55",
+            "800": "6 95 70",
+            "900": "6 78 59",
+            "950": "2 44 34",
+        },
+    },
 }

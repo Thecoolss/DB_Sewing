@@ -1,0 +1,643 @@
+/* ═══════════════════════════════════════════════════════════════════
+   FORCE DARK — no dependency on .dark class or theme mode
+   Every color is set directly. Nothing is white.
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Color tokens ──────────────────────────────────────────────── */
+:root {
+    --ss-bg:          #0c1117;
+    --ss-sidebar:     #080d13;
+    --ss-surface:     #131920;
+    --ss-surface-2:   #1a2230;
+    --ss-border:      rgba(255,255,255,0.08);
+    --ss-text:        #e2e8f0;
+    --ss-muted:       rgba(255,255,255,0.40);
+    --ss-green:       #10b981;
+    --ss-green-dim:   rgba(16,185,129,0.14);
+    --ss-green-text:  #6ee7b7;
+}
+
+/* ── Page & body ───────────────────────────────────────────────── */
+html, body {
+    background-color: var(--ss-bg) !important;
+    color: var(--ss-text) !important;
+}
+
+/* Kill every bg-white and bg-base-* class unconditionally */
+.bg-white,
+.bg-base-50,
+.bg-base-100,
+.bg-base-900,
+.bg-base-800,
+[class*="bg-white"],
+[class*="bg-base-50"],
+[class*="bg-base-100"],
+[class*="bg-base-800"],
+[class*="bg-base-900"] {
+    background-color: var(--ss-surface) !important;
+}
+
+/* The outermost wrappers should be true background colour */
+#page,
+#main,
+body > div {
+    background-color: var(--ss-bg) !important;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────── */
+#nav-sidebar,
+#nav-sidebar-inner {
+    background: var(--ss-sidebar) !important;
+    border-right: 1px solid var(--ss-border) !important;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.5) !important;
+}
+
+#nav-sidebar-inner > div:first-child {
+    background: rgba(255,255,255,0.03) !important;
+    border-bottom: 1px solid var(--ss-border) !important;
+}
+
+/* Logo glow */
+#nav-sidebar-inner a.bg-primary-600,
+#nav-sidebar a[class*="bg-primary"] {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    box-shadow: 0 0 14px rgba(16,185,129,0.45) !important;
+    border-radius: 10px !important;
+}
+
+/* Section labels */
+#nav-sidebar-apps h2 a,
+#nav-sidebar-apps h2 {
+    color: rgba(255,255,255,0.25) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+}
+
+/* Nav links */
+#nav-sidebar-apps li a {
+    color: rgba(255,255,255,0.50) !important;
+    border-radius: 7px !important;
+    background: transparent !important;
+}
+#nav-sidebar-apps li a:hover {
+    background: rgba(255,255,255,0.07) !important;
+    color: rgba(255,255,255,0.85) !important;
+}
+#nav-sidebar-apps li a.font-semibold {
+    background: var(--ss-green-dim) !important;
+    color: var(--ss-green-text) !important;
+}
+
+/* Sidebar footer */
+#nav-sidebar-inner > div:last-child {
+    background: rgba(0,0,0,0.25) !important;
+    border-top: 1px solid var(--ss-border) !important;
+}
+#nav-sidebar-inner > div:last-child * {
+    color: rgba(255,255,255,0.55) !important;
+}
+
+/* ── Top header bar ────────────────────────────────────────────── */
+#main > div:first-child,
+[class*="border-b"][class*="px-4"][class*="mb-6"] {
+    background: var(--ss-sidebar) !important;
+    border-bottom: 1px solid var(--ss-border) !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+#main > div:first-child *,
+[class*="border-b"][class*="px-4"][class*="mb-6"] * {
+    color: var(--ss-text) !important;
+}
+
+/* ── ALL text in the main area ─────────────────────────────────── */
+#main, #content, #content-main {
+    color: var(--ss-text) !important;
+}
+#main * {
+    color: inherit !important;
+    border-color: var(--ss-border) !important;
+}
+
+/* ── Dashboard module cards ────────────────────────────────────── */
+.app-auth.module,
+.app-shop.module {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 16px !important;
+    padding: 20px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+    margin-bottom: 20px !important;
+}
+
+.app-auth.module > div,
+.app-shop.module > div {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.app-auth.module table,
+.app-shop.module table {
+    display: block !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    width: 100% !important;
+}
+
+.app-auth.module table caption,
+.app-shop.module table caption {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.10em !important;
+    color: var(--ss-muted) !important;
+    padding: 0 0 14px !important;
+    text-align: left !important;
+}
+.app-auth.module table caption a,
+.app-shop.module table caption a {
+    color: var(--ss-muted) !important;
+}
+
+.app-auth.module table tbody,
+.app-shop.module table tbody {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 10px !important;
+}
+
+.app-auth.module table tbody tr,
+.app-shop.module table tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    transition: border-color 0.15s, background 0.15s !important;
+}
+.app-auth.module table tbody tr:hover,
+.app-shop.module table tbody tr:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(16,185,129,0.30) !important;
+}
+
+.app-auth.module table tbody th,
+.app-shop.module table tbody th {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 0 12px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--ss-text) !important;
+    flex: 1 !important;
+}
+.app-auth.module table tbody th a,
+.app-shop.module table tbody th a {
+    color: var(--ss-text) !important;
+}
+.app-auth.module table tbody th a:hover,
+.app-shop.module table tbody th a:hover {
+    color: var(--ss-green-text) !important;
+    text-decoration: none !important;
+}
+
+.app-auth.module table tbody td,
+.app-shop.module table tbody td {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.app-auth.module .addlink,
+.app-shop.module .addlink {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--ss-green-dim) !important;
+    border: 1px solid rgba(16,185,129,0.28) !important;
+    border-radius: 6px !important;
+    padding: 5px 10px !important;
+    color: var(--ss-green-text) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+}
+.app-auth.module .addlink::before,
+.app-shop.module .addlink::before { content: "Add " !important; }
+.app-auth.module .addlink:hover,
+.app-shop.module .addlink:hover {
+    background: rgba(16,185,129,0.25) !important;
+    text-decoration: none !important;
+}
+
+/* ── Change list table ─────────────────────────────────────────── */
+#changelist {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+}
+
+#changelist * {
+    background-color: transparent !important;
+    border-color: var(--ss-border) !important;
+    color: var(--ss-text) !important;
+}
+
+#result_list thead th,
+#result_list thead th a {
+    background: var(--ss-surface-2) !important;
+    color: var(--ss-muted) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+
+#result_list tbody tr:hover td,
+#result_list tbody tr:hover th {
+    background: rgba(255,255,255,0.04) !important;
+}
+
+#result_list tbody td a,
+#result_list tbody th a {
+    color: var(--ss-green-text) !important;
+}
+
+/* Search bar */
+#changelist-search input,
+#searchbar {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 8px !important;
+    color: var(--ss-text) !important;
+}
+#changelist-search input:focus,
+#searchbar:focus {
+    border-color: rgba(16,185,129,0.5) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.10) !important;
+    outline: none !important;
+}
+
+/* ── All other modules (form fieldsets) ────────────────────────── */
+.module,
+fieldset.module {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 14px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+    margin-bottom: 16px !important;
+}
+.module h2,
+fieldset.module h2,
+.module > h2 {
+    background: var(--ss-surface-2) !important;
+    border-bottom: 1px solid var(--ss-border) !important;
+    color: var(--ss-muted) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+}
+
+/* Form rows */
+.form-row {
+    border-bottom: 1px solid var(--ss-border) !important;
+    padding: 14px 16px !important;
+    background: transparent !important;
+}
+.form-row label { color: var(--ss-muted) !important; font-size: 12px !important; font-weight: 600 !important; }
+
+/* ── Inputs ────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="url"],
+input[type="search"],
+select,
+textarea {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 8px !important;
+    color: var(--ss-text) !important;
+    font-size: 14px !important;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: rgba(16,185,129,0.55) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.10) !important;
+    outline: none !important;
+}
+
+/* ── Buttons — pill shaped ─────────────────────────────────────── */
+a[class*="bg-primary"],
+button[class*="bg-primary"] {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    padding: 8px 20px !important;
+    box-shadow: 0 2px 12px rgba(16,185,129,0.35) !important;
+}
+a[class*="bg-primary"]:hover,
+button[class*="bg-primary"]:hover {
+    box-shadow: 0 4px 20px rgba(16,185,129,0.5) !important;
+    text-decoration: none !important;
+}
+
+.submit-row {
+    background: var(--ss-surface-2) !important;
+    border-top: 1px solid var(--ss-border) !important;
+    padding: 14px 16px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+}
+.submit-row input[type="submit"],
+.submit-row button[type="submit"] {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    padding: 9px 22px !important;
+    box-shadow: 0 2px 12px rgba(16,185,129,0.35) !important;
+    cursor: pointer !important;
+}
+.submit-row a.deletelink {
+    background: rgba(239,68,68,0.12) !important;
+    border: 1px solid rgba(239,68,68,0.28) !important;
+    border-radius: 9999px !important;
+    color: #fca5a5 !important;
+    padding: 9px 20px !important;
+}
+.submit-row a.closelink,
+.submit-row input[name="_continue"],
+.submit-row input[name="_addanother"] {
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 9999px !important;
+    color: #cbd5e1 !important;
+    padding: 9px 20px !important;
+}
+
+/* ── Pagination ────────────────────────────────────────────────── */
+.paginator {
+    background: var(--ss-surface-2) !important;
+    border-top: 1px solid var(--ss-border) !important;
+    color: var(--ss-muted) !important;
+    padding: 10px 16px !important;
+}
+.paginator a { color: var(--ss-green-text) !important; }
+
+/* ── Help & errors ─────────────────────────────────────────────── */
+.help { color: var(--ss-muted) !important; font-size: 12px !important; }
+.errornote, .errorlist li {
+    background: rgba(239,68,68,0.10) !important;
+    border: 1px solid rgba(239,68,68,0.25) !important;
+    border-radius: 8px !important;
+    color: #fca5a5 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   POLISH — remove boxy/double-border artifacts
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Search bar: strip the outer wrapper box ───────────────────── */
+#changelist-search form > div,
+#changelist-search > div {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+}
+#changelist-search form > div:focus-within,
+#changelist-search > div:focus-within {
+    border-color: rgba(16,185,129,0.50) !important;
+    box-shadow: 0 0 0 3px rgba(16,185,129,0.10) !important;
+}
+/* The actual input inside — borderless, transparent */
+#searchbar,
+#changelist-search input[type="text"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--ss-text) !important;
+    padding: 8px 10px !important;
+}
+#searchbar:focus,
+#changelist-search input[type="text"]:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+/* Search icon colour */
+#searchbar-submit span {
+    color: var(--ss-muted) !important;
+}
+/* Keyboard shortcut hint — strip the pill box */
+#changelist-search kbd,
+#changelist-search .bg-base-50 {
+    background: rgba(255,255,255,0.07) !important;
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    color: var(--ss-muted) !important;
+    border-radius: 4px !important;
+}
+
+/* ── Fieldset inner border box — .form-rows ───────────────────── */
+.form-rows,
+.form-rows.aligned,
+fieldset .form-rows {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+/* ── Form row dividers — dashed borders look noisy ────────────── */
+.field-line,
+.field-row,
+[class*="field-line"],
+[class*="form-row"] {
+    border-color: rgba(255,255,255,0.06) !important;
+    border-style: solid !important;
+}
+
+/* ── Submit row — remove frosted box ──────────────────────────── */
+.submit-row > div,
+[class*="submit-row"] > div {
+    background: var(--ss-surface-2) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-top: 1px solid var(--ss-border) !important;
+}
+
+/* ── Section/app titles in sidebar — not boxes ────────────────── */
+.module h2,
+fieldset.module h2,
+.module > h2 {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    color: rgba(255,255,255,0.30) !important;
+    padding: 12px 16px 10px !important;
+}
+
+/* ── Action toolbar (bulk actions row) ─────────────────────────── */
+.actions,
+[class*="actions"] select,
+[class*="actions"] span {
+    background: var(--ss-surface-2) !important;
+    border-color: rgba(255,255,255,0.08) !important;
+    color: var(--ss-muted) !important;
+}
+.actions select {
+    border-radius: 7px !important;
+    padding: 5px 10px !important;
+}
+
+/* ── Filter sidebar (right side on list pages) ─────────────────── */
+#changelist-filter {
+    background: var(--ss-surface) !important;
+    border-left: 1px solid var(--ss-border) !important;
+    border-radius: 0 16px 16px 0 !important;
+}
+#changelist-filter h2,
+#changelist-filter h3 {
+    background: transparent !important;
+    color: var(--ss-muted) !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.10em !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+}
+#changelist-filter li a,
+#changelist-filter ul li {
+    color: var(--ss-muted) !important;
+}
+#changelist-filter li a:hover,
+#changelist-filter li.selected a {
+    color: var(--ss-green-text) !important;
+    text-decoration: none !important;
+}
+
+/* ── Related-widget add/change icons beside FK fields ──────────── */
+.related-widget-wrapper a {
+    color: var(--ss-green-text) !important;
+    opacity: 0.7 !important;
+}
+.related-widget-wrapper a:hover { opacity: 1 !important; }
+
+/* ── Breadcrumb bar ────────────────────────────────────────────── */
+#breadcrumbs,
+.breadcrumbs,
+[class*="breadcrumb"] {
+    background: transparent !important;
+    color: var(--ss-muted) !important;
+    font-size: 12px !important;
+    border: none !important;
+    padding: 6px 0 !important;
+}
+[class*="breadcrumb"] a,
+#breadcrumbs a {
+    color: var(--ss-muted) !important;
+}
+[class*="breadcrumb"] a:hover { color: var(--ss-green-text) !important; }
+
+/* ── Date hierarchy bar ────────────────────────────────────────── */
+.xfull,
+#changelist .xfull {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* ── "Recently added" object tools ────────────────────────────── */
+#object-tools,
+.object-tools {
+    background: transparent !important;
+}
+.object-tools a {
+    background: var(--ss-green-dim) !important;
+    border: 1px solid rgba(16,185,129,0.28) !important;
+    border-radius: 9999px !important;
+    color: var(--ss-green-text) !important;
+    padding: 6px 16px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+.object-tools a:hover {
+    background: rgba(16,185,129,0.25) !important;
+    text-decoration: none !important;
+}
+
+/* ── Inline tables inside forms ────────────────────────────────── */
+.inline-group {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    margin-bottom: 16px !important;
+}
+.inline-group h2 {
+    background: var(--ss-surface-2) !important;
+    color: var(--ss-muted) !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    padding: 10px 16px !important;
+    border-bottom: 1px solid var(--ss-border) !important;
+}
+.inline-group table {
+    background: transparent !important;
+}
+.inline-group thead th {
+    background: var(--ss-surface-2) !important;
+    color: var(--ss-muted) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.07em !important;
+}
+.inline-group tbody td, .inline-group tbody th {
+    border-color: rgba(255,255,255,0.05) !important;
+    color: var(--ss-text) !important;
+    background: transparent !important;
+}
+
+/* ── Select2 / autocomplete widgets ───────────────────────────── */
+.select2-container--default .select2-selection,
+.select2-selection {
+    background: var(--ss-surface-2) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-radius: 8px !important;
+    color: var(--ss-text) !important;
+}
+.select2-dropdown {
+    background: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    border-radius: 10px !important;
+}
+.select2-results__option {
+    color: var(--ss-text) !important;
+}
+.select2-results__option--highlighted {
+    background: var(--ss-green-dim) !important;
+    color: var(--ss-green-text) !important;
+}
