@@ -13,75 +13,79 @@
 
 {% block content %}
 <section class="kpi-grid" aria-label="Key workload metrics">
-    <div class="kpi-card">
+    <div class="kpi-card kpi-blue">
         <div class="kpi-label">Pending</div>
         <div class="kpi-value">{{ pending_count }}</div>
-        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'pending' %}">Browse pending</a></div>
+        <a class="kpi-link" href="{% url 'shop:order_monitor' 'pending' %}">Browse pending &rarr;</a>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card kpi-purple">
         <div class="kpi-label">In production</div>
         <div class="kpi-value">{{ in_production_count }}</div>
-        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'production' %}">Browse in production</a></div>
+        <a class="kpi-link" href="{% url 'shop:order_monitor' 'production' %}">Browse production &rarr;</a>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card kpi-red">
         <div class="kpi-label">Overdue</div>
         <div class="kpi-value">{{ overdue_count }}</div>
-        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'overdue' %}">Open overdue list</a></div>
+        <a class="kpi-link" href="{% url 'shop:order_monitor' 'overdue' %}">Open overdue list &rarr;</a>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card kpi-green">
         <div class="kpi-label">Completed</div>
         <div class="kpi-value">{{ completed_count }}</div>
-        <div class="muted" style="margin-top:10px;"><a href="{% url 'shop:order_monitor' 'completed' %}">Browse completed</a></div>
+        <a class="kpi-link" href="{% url 'shop:order_monitor' 'completed' %}">Browse completed &rarr;</a>
     </div>
 </section>
 
-<h3 class="page-subtitle" style="margin-top: 6px; margin-bottom: 10px; color: var(--text); letter-spacing:-0.01em;">Ticket status mix</h3>
-<div class="table-wrap">
-<table>
-    <thead>
-    <tr>
-        <th>Stage</th>
-        <th>Total Tickets</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for item in ticket_summary %}
-        <tr>
-            <td>{{ item.label }}</td>
-            <td>{{ item.total }}</td>
-        </tr>
-    {% empty %}
-        <tr><td colspan="2" class="muted">No tickets yet.</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
+<div class="section-header">
+    <h3 class="section-title">Ticket status mix</h3>
+</div>
+<div class="table-wrap" style="margin-bottom:28px;">
+    <table>
+        <thead>
+            <tr>
+                <th>Stage</th>
+                <th>Total tickets</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for item in ticket_summary %}
+            <tr>
+                <td>{{ item.label }}</td>
+                <td class="mono">{{ item.total }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="2" class="muted">No tickets yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<h3 class="page-subtitle" style="margin-top: 22px; margin-bottom: 10px; color: var(--text); letter-spacing:-0.01em;">Recent orders</h3>
+<div class="section-header">
+    <h3 class="section-title">Recent orders</h3>
+</div>
 <div class="table-wrap">
-<table>
-    <thead>
-    <tr>
-        <th>Reference</th>
-        <th>Customer</th>
-        <th>Status</th>
-        <th>Due Date</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for order in recent_orders %}
-        <tr>
-            <td class="mono">
-                <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
-            </td>
-            <td>{{ order.customer.full_name }}</td>
-            <td>{{ order.get_status_display }}</td>
-            <td>{{ order.due_date }}</td>
-        </tr>
-    {% empty %}
-        <tr><td colspan="4" class="muted">No orders found.</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Due date</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for order in recent_orders %}
+            <tr>
+                <td class="mono">
+                    <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
+                </td>
+                <td>{{ order.customer.full_name }}</td>
+                <td><span class="badge gray">{{ order.get_status_display }}</span></td>
+                <td class="muted">{{ order.due_date }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="muted">No orders found.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock content %}

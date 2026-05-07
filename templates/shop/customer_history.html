@@ -5,50 +5,71 @@
 
 {% block tools %}
     <div class="tools">
-        <a class="btn" href="/admin/shop/order/?customer__id__exact={{ customer.id }}">Open orders filtered (admin)</a>
+        <a class="btn" href="/admin/shop/order/?customer__id__exact={{ customer.id }}">Filter in admin</a>
         <a class="btn primary" href="{% url 'shop:customer_search' %}">Back to lookup</a>
     </div>
 {% endblock tools %}
 
 {% block content %}
-<p class="muted" style="margin-top:-6px;margin-bottom:12px;">
-    <strong>{{ customer.full_name }}</strong>
-    {% if customer.phone %}<span aria-hidden="true"> · </span>Phone {{ customer.phone }}{% endif %}
-    {% if customer.email %}<span aria-hidden="true"> · </span>Email {{ customer.email }}{% endif %}
-</p>
+<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
+    {% if customer.phone %}
+    <div>
+        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Phone</div>
+        <div style="font-size:14px;font-weight:500;">{{ customer.phone }}</div>
+    </div>
+    {% endif %}
+    {% if customer.email %}
+    <div>
+        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Email</div>
+        <div style="font-size:14px;font-weight:500;">{{ customer.email }}</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="section-header">
+    <h3 class="section-title">Order history</h3>
+    <span class="mini">{{ orders|length }} order{{ orders|length|pluralize }}</span>
+</div>
 
 <div class="table-wrap">
-<table role="grid" aria-label="Customer order history">
-    <thead>
-    <tr>
-        <th>Order Ref</th>
-        <th>Status</th>
-        <th>Due Date</th>
-        <th>Garments</th>
-        <th>Tickets</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for order in orders %}
-        <tr>
-            <td class="mono"><a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a></td>
-            <td>{{ order.get_status_display }}</td>
-            <td>{{ order.due_date }}</td>
-            <td>{{ order.garments.count }}</td>
-            <td>
-                {% for garment in order.garments.all %}
-                    {% for ticket in garment.tickets.all %}
-                        {{ ticket.ticket_number }} ({{ ticket.get_current_stage_display }})<br>
+    <table role="grid" aria-label="Customer order history">
+        <thead>
+            <tr>
+                <th>Order ref</th>
+                <th>Status</th>
+                <th>Due date</th>
+                <th>Garments</th>
+                <th>Tickets</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for order in orders %}
+            <tr>
+                <td class="mono">
+                    <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
+                </td>
+                <td><span class="badge gray">{{ order.get_status_display }}</span></td>
+                <td class="muted">{{ order.due_date }}</td>
+                <td class="muted">{{ order.garments.count }}</td>
+                <td>
+                    {% for garment in order.garments.all %}
+                        {% for ticket in garment.tickets.all %}
+                            <div style="font-size:12px;">
+                                <span class="mono">{{ ticket.ticket_number }}</span>
+                                <span class="badge gray" style="margin-left:4px;">{{ ticket.get_current_stage_display }}</span>
+                            </div>
+                        {% endfor %}
+                    {% empty %}
+                        <span class="muted">—</span>
                     {% endfor %}
-                {% empty %}
-                    -
-                {% endfor %}
-            </td>
-        </tr>
-    {% empty %}
-        <tr><td colspan="5" class="muted" style="padding:14px;">No orders yet for this customer.</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
+                </td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="5" class="muted" style="padding:18px 16px;">No orders yet for this customer.</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock content %}
