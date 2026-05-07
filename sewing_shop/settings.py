@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
     DEBUG=(bool, True),
+    TIME_ZONE=(str, "Europe/Berlin"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -84,7 +85,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+# Match this to your locale so the admin “hours ahead/behind server time” notice goes away.
+# Override in .env, e.g. TIME_ZONE=Asia/Jerusalem
+TIME_ZONE = env("TIME_ZONE")
 USE_I18N = True
 USE_TZ = True
 

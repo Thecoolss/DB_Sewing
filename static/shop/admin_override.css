@@ -3,6 +3,11 @@
    Every color is set directly. Nothing is white.
 ═══════════════════════════════════════════════════════════════════ */
 
+/* Tell the browser to use dark-themed form controls (native date/time, select popups). */
+html {
+    color-scheme: dark;
+}
+
 /* ── Color tokens ──────────────────────────────────────────────── */
 :root {
     --ss-bg:          #0c1117;
@@ -342,6 +347,35 @@ input:focus, select:focus, textarea:focus {
     border-color: rgba(16,185,129,0.55) !important;
     box-shadow: 0 0 0 3px rgba(16,185,129,0.10) !important;
     outline: none !important;
+}
+
+/* Native <select>: option list text/background (Chrome/Edge/Safari; Firefox varies) */
+select {
+    color-scheme: dark;
+}
+select option,
+select optgroup {
+    background-color: #1a2230 !important;
+    color: #e2e8f0 !important;
+}
+
+/* Unfold / Headless UI listboxes (filters and some widgets) */
+[role="listbox"],
+.popover,
+[class*="popover"] [role="listbox"] {
+    background-color: var(--ss-surface) !important;
+    border: 1px solid var(--ss-border) !important;
+    color: var(--ss-text) !important;
+}
+[role="option"] {
+    color: var(--ss-text) !important;
+    background-color: transparent !important;
+}
+[role="option"][aria-selected="true"],
+[role="option"][data-headlessui-state~="active"],
+[role="option"]:hover {
+    background-color: var(--ss-green-dim) !important;
+    color: var(--ss-green-text) !important;
 }
 
 /* ── Buttons — pill shaped ─────────────────────────────────────── */
