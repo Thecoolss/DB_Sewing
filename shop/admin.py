@@ -1,7 +1,6 @@
 from django import forms
 from django.contrib import admin, messages
 from django.utils import timezone
-from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 
@@ -324,65 +323,24 @@ class StatusHistoryInline(TabularInline):
 class WorkTicketAdmin(StaffEditableModelAdmin):
     list_display = (
         "ticket_number",
-        "order_reference",
         "garment",
-        "order_lead",
         "assigned_worker",
         "current_stage",
         "priority",
         "deadline",
         "is_overdue",
     )
-    list_display_links = ("ticket_number", "order_reference")
-    list_select_related = (
-        "garment__order",
-        "garment__order__assigned_employee",
-        "garment__order__customer",
-        "garment__garment_type",
-        "assigned_worker",
-    )
+    list_display_links = ("ticket_number",)
+    list_select_related = ("garment__order", "garment__garment_type", "assigned_worker")
     list_filter = ("current_stage", "priority", "deadline", "assigned_worker")
     search_fields = (
         "ticket_number",
         "garment__order__reference",
         "garment__order__customer__full_name",
-        "garment__order__assigned_employee__full_name",
-        "assigned_worker__full_name",
         "garment__garment_type__name",
     )
-    readonly_fields = ("order_link",)
     inlines = (StatusHistoryInline,)
     actions = ("mark_ready_for_delivery", "mark_delivered")
-
-    @admin.display(description="Order", ordering="garment__order__reference")
-    def order_reference(self, obj):
-        order = obj.garment.order
-        url = reverse("admin:shop_order_change", args=[order.pk])
-        return format_html('<a href="{}">{}</a>', url, order.reference)
-
-    @admin.display(
-        description="Order lead",
-        ordering="garment__order__assigned_employee__full_name",
-    )
-    def order_lead(self, obj):
-        emp = obj.garment.order.assigned_employee
-        return emp.full_name if emp else "—"
-
-    @admin.display(description="Order (read-only)")
-    def order_link(self, obj):
-        if not obj.pk:
-            return "—"
-        order = obj.garment.order
-        url = reverse("admin:shop_order_change", args=[order.pk])
-        lead = order.assigned_employee
-        lead_txt = lead.full_name if lead else "—"
-        return format_html(
-            '<a href="{}">{}</a> — {} — Order lead: <strong>{}</strong>',
-            url,
-            order.reference,
-            order.customer.full_name,
-            lead_txt,
-        )
 
     def save_model(self, request, obj, form, change):
         previous_stage = None

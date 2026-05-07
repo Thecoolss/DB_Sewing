@@ -131,12 +131,6 @@ class Order(models.Model):
         if self.status == self.Status.COMPLETED and not self.completed_at:
             self.completed_at = timezone.now()
         super().save(*args, **kwargs)
-        # Tickets use assigned_worker; orders use assigned_employee — copy when ticket worker unset.
-        if self.assigned_employee_id:
-            WorkTicket.objects.filter(
-                garment__order=self,
-                assigned_worker__isnull=True,
-            ).update(assigned_worker_id=self.assigned_employee_id)
 
 
 class Garment(models.Model):
@@ -165,21 +159,13 @@ class Garment(models.Model):
         return f"{self.garment_type} ({self.order.reference})"
 
     def create_default_ticket(self):
-        ticket, created = WorkTicket.objects.get_or_create(
+        ticket, _ = WorkTicket.objects.get_or_create(
             garment=self,
             defaults={
                 "deadline": self.order.due_date,
                 "current_stage": WorkTicket.Stage.ORDER_RECEIVED,
-                "assigned_worker": self.order.assigned_employee,
             },
         )
-        if (
-            not created
-            and ticket.assigned_worker_id is None
-            and self.order.assigned_employee_id
-        ):
-            ticket.assigned_worker = self.order.assigned_employee
-            ticket.save(update_fields=["assigned_worker"])
         return ticket
 
 

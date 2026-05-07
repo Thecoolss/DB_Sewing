@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import environ
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -103,6 +105,23 @@ UNFOLD = {
     "SITE_SUBHEADER": "Operations Management",
     "SITE_SYMBOL": "content_cut",
     "THEME": "dark",
+    # No generic "View site" — use explicit Operations dashboard links below.
+    "SITE_URL": None,
+    "SITE_DROPDOWN": [
+        {
+            "icon": "dashboard",
+            "title": _("Operations dashboard"),
+            "link": reverse_lazy("shop:dashboard"),
+        },
+    ],
+    "ACCOUNT": {
+        "navigation": [
+            {
+                "title": _("Operations dashboard"),
+                "link": reverse_lazy("shop:dashboard"),
+            },
+        ],
+    },
     "STYLES": [
         lambda request: "/static/shop/admin_override.css",
     ],
