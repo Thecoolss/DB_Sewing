@@ -215,6 +215,7 @@ class Garment(models.Model):
             defaults={
                 "deadline": self.order.due_date,
                 "current_stage": WorkTicket.Stage.ORDER_RECEIVED,
+                "assigned_worker": self.order.assigned_employee,
             },
         )
         return ticket
