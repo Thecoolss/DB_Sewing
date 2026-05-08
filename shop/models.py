@@ -175,6 +175,12 @@ class Garment(models.Model):
     def __str__(self):
         return f"{self.garment_type} ({self.order.reference})"
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new:
+            self.create_default_ticket()
+
     def create_default_ticket(self):
         ticket, _ = WorkTicket.objects.get_or_create(
             garment=self,
