@@ -121,6 +121,7 @@ class GarmentInline(StackedInline):
                 "fields": (
                     ("garment_type", "primary_material"),
                     ("quantity", "color"),
+                    ("unit_price",),
                     "design_notes",
                 )
             },
@@ -172,24 +173,50 @@ class GarmentTypeAdmin(StaffEditableModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(StaffEditableModelAdmin):
-    list_display = ("reference", "customer", "assigned_employee", "order_date", "due_date", "status")
-    list_filter = ("status", "order_date", "due_date", "assigned_employee")
+    list_display = (
+        "reference", "customer", "assigned_employee",
+        "status", "due_date",
+        "total_price", "deposit_paid", "balance_due_display", "payment_status",
+    )
+    list_filter = ("status", "payment_status", "order_date", "due_date", "assigned_employee")
     search_fields = ("reference", "customer__full_name", "assigned_employee__full_name")
     date_hierarchy = "order_date"
-    readonly_fields = ("reference", "completed_at", "measurement_overview")
-    fields = (
-        "reference",
-        "customer",
-        "assigned_employee",
-        "order_date",
-        "due_date",
-        "status",
-        "completed_at",
-        "notes",
-        "measurement_overview",
+    readonly_fields = ("reference", "completed_at", "balance_due_display", "measurement_overview")
+    fieldsets = (
+        (
+            "Order",
+            {
+                "fields": (
+                    "reference",
+                    ("customer", "assigned_employee"),
+                    ("order_date", "due_date"),
+                    ("status", "completed_at"),
+                    "notes",
+                )
+            },
+        ),
+        (
+            "Pricing",
+            {
+                "fields": (
+                    ("total_price", "deposit_paid"),
+                    ("payment_status", "balance_due_display"),
+                )
+            },
+        ),
+        (
+            "Measurements summary",
+            {"fields": ("measurement_overview",)},
+        ),
     )
     inlines = (GarmentInline,)
     actions = ("generate_work_tickets", "mark_as_in_production", "mark_as_completed")
+
+    @admin.display(description="Balance due")
+    def balance_due_display(self, obj):
+        if not obj or obj.balance_due is None:
+            return "—"
+        return f"£{obj.balance_due:,.2f}"
 
     @admin.action(description="Generate missing work tickets for selected orders")
     def generate_work_tickets(self, request, queryset):
@@ -379,9 +406,39 @@ class StatusHistoryAdmin(StaffEditableModelAdmin):
 
 @admin.register(Delivery)
 class DeliveryAdmin(StaffEditableModelAdmin):
-    list_display = ("order", "method", "status", "scheduled_date", "delivered_date")
+    list_display = (
+        "order", "customer_name", "method", "status",
+        "scheduled_date", "delivered_date", "order_total", "order_balance",
+    )
     list_filter = ("status", "method", "scheduled_date")
     search_fields = ("order__reference", "order__customer__full_name")
+    readonly_fields = ("order_total", "order_balance")
+    fieldsets = (
+        (
+            "Delivery",
+            {"fields": ("order", "method", "status", ("scheduled_date", "delivered_date"), "final_observations")},
+        ),
+        (
+            "Pricing (from order)",
+            {"fields": ("order_total", "order_balance")},
+        ),
+    )
+
+    @admin.display(description="Customer")
+    def customer_name(self, obj):
+        return obj.order.customer.full_name
+
+    @admin.display(description="Order total")
+    def order_total(self, obj):
+        if obj.order.total_price is None:
+            return "—"
+        return f"£{obj.order.total_price:,.2f}"
+
+    @admin.display(description="Balance due")
+    def order_balance(self, obj):
+        if obj.order.balance_due is None:
+            return "—"
+        return f"£{obj.order.balance_due:,.2f}"
 
 
 @admin.register(Measurement)

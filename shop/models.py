@@ -69,6 +69,11 @@ class Order(models.Model):
         DELIVERED = "delivered", "Delivered"
         CANCELLED = "cancelled", "Cancelled"
 
+    class PaymentStatus(models.TextChoices):
+        UNPAID = "unpaid", "Unpaid"
+        DEPOSIT_PAID = "deposit_paid", "Deposit Paid"
+        FULLY_PAID = "fully_paid", "Fully Paid"
+
     reference = models.CharField(max_length=30, unique=True, editable=False)
     customer = models.ForeignKey(
         Customer,
@@ -90,6 +95,19 @@ class Order(models.Model):
         default=Status.DRAFT,
     )
     completed_at = models.DateTimeField(null=True, blank=True)
+    total_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Agreed total price for this order.",
+    )
+    deposit_paid = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00"),
+        help_text="Deposit amount already received.",
+    )
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PaymentStatus.choices,
+        default=PaymentStatus.UNPAID,
+    )
     notes = models.TextField(blank=True)
 
     class Meta:
@@ -97,6 +115,12 @@ class Order(models.Model):
 
     def __str__(self):
         return self.reference
+
+    @property
+    def balance_due(self):
+        if self.total_price is None:
+            return None
+        return self.total_price - (self.deposit_paid or Decimal("0.00"))
 
     def clean(self):
         if self.due_date < self.order_date:
@@ -167,6 +191,10 @@ class Garment(models.Model):
     )
     quantity = models.PositiveIntegerField(default=1)
     color = models.CharField(max_length=50, blank=True)
+    unit_price = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Price per unit for this garment.",
+    )
     design_notes = models.TextField(blank=True)
 
     class Meta:
