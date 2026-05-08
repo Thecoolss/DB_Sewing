@@ -167,11 +167,14 @@ class Order(models.Model):
         ).exists()
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
         if not self.reference:
             self.reference = f"ORD-{uuid.uuid4().hex[:8].upper()}"
         if self.status == self.Status.COMPLETED and not self.completed_at:
             self.completed_at = timezone.now()
         super().save(*args, **kwargs)
+        if is_new:
+            Delivery.objects.get_or_create(order=self)
 
 
 class Garment(models.Model):
@@ -373,6 +376,42 @@ class WorkTicket(models.Model):
                 stage=self.current_stage,
                 comments=f"Stage changed from {previous_stage} to {self.current_stage}.",
             )
+            self._sync_order_and_delivery()
+
+    def _sync_order_and_delivery(self):
+        order = self.garment.order
+        stages = list(
+            WorkTicket.objects.filter(garment__order=order)
+            .values_list("current_stage", flat=True)
+        )
+        if not stages:
+            return
+
+        terminal = {self.Stage.READY_FOR_DELIVERY, self.Stage.DELIVERED}
+        all_terminal = all(s in terminal for s in stages)
+        all_delivered = all(s == self.Stage.DELIVERED for s in stages)
+
+        try:
+            delivery = order.delivery
+        except Exception:
+            return
+
+        if all_delivered and delivery.status != Delivery.Status.DELIVERED:
+            Delivery.objects.filter(pk=delivery.pk).update(
+                status=Delivery.Status.DELIVERED,
+                delivered_date=timezone.localdate(),
+            )
+            Order.objects.filter(pk=order.pk).update(
+                status=Order.Status.DELIVERED,
+                completed_at=timezone.now(),
+            )
+        elif all_terminal and not all_delivered and delivery.status == Delivery.Status.PENDING:
+            Delivery.objects.filter(pk=delivery.pk).update(status=Delivery.Status.READY)
+            if order.status not in {Order.Status.COMPLETED, Order.Status.DELIVERED}:
+                Order.objects.filter(pk=order.pk).update(
+                    status=Order.Status.COMPLETED,
+                    completed_at=timezone.now(),
+                )
 
 
 class StatusHistory(models.Model):
@@ -451,38 +490,6 @@ class Delivery(models.Model):
                 {"delivered_date": "Delivered date cannot be before the order date."}
             )
 
-        # Tickets must be at least Ready-for-delivery before this delivery can be Ready/Delivered.
-        if self.status in {self.Status.READY, self.Status.DELIVERED}:
-            non_terminal = WorkTicket.objects.filter(garment__order=self.order).exclude(
-                current_stage__in=[
-                    WorkTicket.Stage.READY_FOR_DELIVERY,
-                    WorkTicket.Stage.DELIVERED,
-                ]
-            )
-            if non_terminal.exists():
-                raise ValidationError(
-                    {
-                        "status": (
-                            "Delivery cannot be marked Ready/Delivered while tickets are still "
-                            "in active production stages."
-                        )
-                    }
-                )
-
-        # Stricter rule: closing as Delivered requires every ticket to be Delivered.
-        if self.status == self.Status.DELIVERED:
-            not_delivered = WorkTicket.objects.filter(garment__order=self.order).exclude(
-                current_stage=WorkTicket.Stage.DELIVERED
-            )
-            if not_delivered.exists():
-                raise ValidationError(
-                    {
-                        "status": (
-                            "Delivery cannot be marked Delivered until every ticket reaches the "
-                            "Delivered stage."
-                        )
-                    }
-                )
 
     def save(self, *args, **kwargs):
         if self.status == self.Status.DELIVERED and not self.delivered_date:
