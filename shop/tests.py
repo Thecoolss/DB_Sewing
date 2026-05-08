@@ -34,6 +34,7 @@ class WorkflowAutomationTests(TestCase):
         )
 
     def test_garment_can_generate_default_ticket(self):
+        # Garment.save() already created a ticket; create_default_ticket() returns it.
         ticket = self.garment.create_default_ticket()
 
         self.assertEqual(ticket.garment, self.garment)
@@ -42,10 +43,10 @@ class WorkflowAutomationTests(TestCase):
         self.assertEqual(self.garment.tickets.count(), 1)
 
     def test_delivery_marks_order_delivered(self):
-        delivery = Delivery.objects.create(
-            order=self.order,
-            status=Delivery.Status.DELIVERED,
-        )
+        # Order.save() auto-creates a Delivery; get it and update.
+        delivery = self.order.delivery
+        delivery.status = Delivery.Status.DELIVERED
+        delivery.save()
 
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.Status.DELIVERED)
@@ -68,46 +69,34 @@ class WorkflowAutomationTests(TestCase):
         with self.assertRaises(ValidationError):
             measurement.full_clean()
 
-    def test_delivery_blocked_when_tickets_in_active_production(self):
+    def test_tickets_in_active_stage_do_not_advance_delivery(self):
+        # Tickets in mid-production stages should NOT auto-advance delivery.
         ticket = self.garment.create_default_ticket()
         ticket.current_stage = WorkTicket.Stage.SEWING
         ticket.save()
 
-        delivery = Delivery(
-            order=self.order,
-            status=Delivery.Status.READY,
-        )
+        self.order.delivery.refresh_from_db()
+        self.assertEqual(self.order.delivery.status, Delivery.Status.PENDING)
 
-        with self.assertRaises(ValidationError):
-            delivery.full_clean()
-
-    def test_delivery_to_delivered_requires_all_tickets_delivered(self):
+    def test_all_tickets_ready_advances_delivery_to_ready(self):
+        # When every ticket reaches READY_FOR_DELIVERY the delivery auto-advances.
         ticket = self.garment.create_default_ticket()
         ticket.current_stage = WorkTicket.Stage.READY_FOR_DELIVERY
         ticket.save()
 
-        delivery = Delivery(
-            order=self.order,
-            status=Delivery.Status.DELIVERED,
-            delivered_date=timezone.localdate(),
-        )
-
-        with self.assertRaises(ValidationError):
-            delivery.full_clean()
+        self.order.delivery.refresh_from_db()
+        self.assertEqual(self.order.delivery.status, Delivery.Status.READY)
 
     def test_delivered_order_cannot_regress(self):
+        # Advancing all tickets to DELIVERED cascades order → DELIVERED.
         ticket = self.garment.create_default_ticket()
         ticket.current_stage = WorkTicket.Stage.DELIVERED
         ticket.save()
 
-        Delivery.objects.create(
-            order=self.order,
-            status=Delivery.Status.DELIVERED,
-        )
-
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.Status.DELIVERED)
 
+        # A DELIVERED order cannot be moved to an earlier status.
         self.order.status = Order.Status.IN_PRODUCTION
         with self.assertRaises(ValidationError):
             self.order.full_clean()
