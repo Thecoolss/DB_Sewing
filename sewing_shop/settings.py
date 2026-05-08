@@ -105,7 +105,6 @@ UNFOLD = {
     "SITE_SUBHEADER": "Operations Management",
     "SITE_SYMBOL": "content_cut",
     "THEME": "dark",
-    # No generic "View site" — use explicit Operations dashboard links below.
     "SITE_URL": None,
     "SITE_DROPDOWN": [
         {
@@ -114,14 +113,6 @@ UNFOLD = {
             "link": reverse_lazy("shop:dashboard"),
         },
     ],
-    "ACCOUNT": {
-        "navigation": [
-            {
-                "title": _("Operations dashboard"),
-                "link": reverse_lazy("shop:dashboard"),
-            },
-        ],
-    },
     "STYLES": [
         lambda request: "/static/shop/admin_override.css",
     ],
@@ -140,4 +131,92 @@ UNFOLD = {
             "950": "2 44 34",
         },
     },
+    "NAVIGATION": [
+        {
+            "title": _("Operations"),
+            "separator": False,
+            "items": [
+                {
+                    "title": _("Dashboard"),
+                    "icon": "dashboard",
+                    "link": reverse_lazy("shop:dashboard"),
+                },
+                {
+                    "title": _("Orders"),
+                    "icon": "receipt_long",
+                    "link": reverse_lazy("admin:shop_order_changelist"),
+                },
+                {
+                    "title": _("Customers"),
+                    "icon": "people",
+                    "link": reverse_lazy("admin:shop_customer_changelist"),
+                },
+                {
+                    "title": _("Customer lookup"),
+                    "icon": "search",
+                    "link": reverse_lazy("shop:customer_search"),
+                },
+            ],
+        },
+        {
+            "title": _("Production"),
+            "separator": True,
+            "items": [
+                {
+                    "title": _("Work Tickets"),
+                    "icon": "task_alt",
+                    "link": reverse_lazy("admin:shop_workticket_changelist"),
+                },
+                {
+                    "title": _("Deliveries"),
+                    "icon": "local_shipping",
+                    "link": reverse_lazy("admin:shop_delivery_changelist"),
+                },
+            ],
+        },
+        {
+            "title": _("Catalogue"),
+            "separator": True,
+            "collapsible": True,
+            "items": [
+                {
+                    "title": _("Garment Types"),
+                    "icon": "checkroom",
+                    "link": reverse_lazy("admin:shop_garmenttype_changelist"),
+                },
+                {
+                    "title": _("Materials"),
+                    "icon": "inventory_2",
+                    "link": reverse_lazy("admin:shop_material_changelist"),
+                },
+                {
+                    "title": _("Employees"),
+                    "icon": "badge",
+                    "link": reverse_lazy("admin:shop_employee_changelist"),
+                },
+            ],
+        },
+        {
+            "title": _("System"),
+            "separator": True,
+            "collapsible": True,
+            "items": [
+                {
+                    "title": _("Measurements"),
+                    "icon": "straighten",
+                    "link": reverse_lazy("admin:shop_measurement_changelist"),
+                },
+                {
+                    "title": _("Garments"),
+                    "icon": "content_cut",
+                    "link": reverse_lazy("admin:shop_garment_changelist"),
+                },
+                {
+                    "title": _("Status History"),
+                    "icon": "history",
+                    "link": reverse_lazy("admin:shop_statushistory_changelist"),
+                },
+            ],
+        },
+    ],
 }
