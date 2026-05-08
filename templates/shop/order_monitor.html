@@ -5,7 +5,7 @@
 
 {% block tools %}
     <div class="tools">
-        <a class="btn primary" href="{{ admin_root }}shop/order/">Browse in admin</a>
+        <a class="btn primary" href="{% url 'admin:shop_order_changelist' %}">Browse in admin</a>
         {% if filter_name != "delivered" %}
             <a class="btn" href="{% url 'shop:order_monitor' 'delivered' %}">View delivered</a>
         {% endif %}
@@ -70,7 +70,7 @@
                     <td>
                         <div style="display:flex;flex-direction:column;gap:8px;">
                             <a class="btn primary" href="{{ row.admin_change_url }}">Open in admin</a>
-                            <a class="btn" href="/admin/shop/workticket/?q={{ order.reference|urlencode }}">Find tickets</a>
+                            <a class="btn" href="{% url 'admin:shop_workticket_changelist' %}?q={{ order.reference|urlencode }}">Find tickets</a>
                         </div>
                     </td>
                 </tr>

@@ -39,6 +39,22 @@ class Command(BaseCommand):
             garment_type, _ = GarmentType.objects.get_or_create(name=type_name)
             garment_types.append(garment_type)
 
+        # Pick ticket stages and delivery status that don't violate model rules.
+        in_production_stages = [
+            WorkTicket.Stage.DESIGN_CONFIRMED,
+            WorkTicket.Stage.CUTTING,
+            WorkTicket.Stage.SEWING,
+            WorkTicket.Stage.FINISHING,
+            WorkTicket.Stage.QUALITY_CHECK,
+        ]
+        order_status_cycle = [
+            Order.Status.DRAFT,
+            Order.Status.IN_PRODUCTION,
+            Order.Status.COMPLETED,
+            Order.Status.DELIVERED,
+            Order.Status.IN_PRODUCTION,
+        ]
+
         for idx in range(1, 6):
             customer, _ = Customer.objects.get_or_create(
                 full_name=f"Customer {idx}",
@@ -49,21 +65,27 @@ class Command(BaseCommand):
                 },
             )
 
+            order_status = order_status_cycle[(idx - 1) % len(order_status_cycle)]
             order, _ = Order.objects.get_or_create(
                 customer=customer,
                 due_date=today + timedelta(days=7 + idx),
                 defaults={
                     "assigned_employee": choice(workers),
-                    "status": choice(
-                        [
-                            Order.Status.DRAFT,
-                            Order.Status.IN_PRODUCTION,
-                            Order.Status.COMPLETED,
-                        ]
-                    ),
+                    "status": order_status,
                     "notes": "Auto-generated demo order.",
                 },
             )
+
+            if order_status == Order.Status.DRAFT:
+                ticket_stage = WorkTicket.Stage.ORDER_RECEIVED
+            elif order_status == Order.Status.IN_PRODUCTION:
+                ticket_stage = choice(in_production_stages)
+            elif order_status == Order.Status.COMPLETED:
+                ticket_stage = WorkTicket.Stage.READY_FOR_DELIVERY
+            elif order_status == Order.Status.DELIVERED:
+                ticket_stage = WorkTicket.Stage.DELIVERED
+            else:
+                ticket_stage = WorkTicket.Stage.ORDER_RECEIVED
 
             for garment_idx in range(1, 3):
                 garment, _ = Garment.objects.get_or_create(
@@ -100,17 +122,28 @@ class Command(BaseCommand):
                     defaults={
                         "assigned_worker": choice(workers),
                         "priority": choice(list(WorkTicket.Priority.values)),
-                        "current_stage": choice(list(WorkTicket.Stage.values)),
+                        "current_stage": ticket_stage,
                         "notes": "Auto-generated ticket.",
                     },
                 )
+
+            if order_status == Order.Status.COMPLETED:
+                delivery_status = Delivery.Status.READY
+                delivered_date = None
+            elif order_status == Order.Status.DELIVERED:
+                delivery_status = Delivery.Status.DELIVERED
+                delivered_date = today
+            else:
+                delivery_status = Delivery.Status.PENDING
+                delivered_date = None
 
             Delivery.objects.get_or_create(
                 order=order,
                 defaults={
                     "method": Delivery.Method.PICKUP,
-                    "status": Delivery.Status.PENDING,
+                    "status": delivery_status,
                     "scheduled_date": order.due_date,
+                    "delivered_date": delivered_date,
                 },
             )
 

@@ -68,4 +68,46 @@ class WorkflowAutomationTests(TestCase):
         with self.assertRaises(ValidationError):
             measurement.full_clean()
 
-# Create your tests here.
+    def test_delivery_blocked_when_tickets_in_active_production(self):
+        ticket = self.garment.create_default_ticket()
+        ticket.current_stage = WorkTicket.Stage.SEWING
+        ticket.save()
+
+        delivery = Delivery(
+            order=self.order,
+            status=Delivery.Status.READY,
+        )
+
+        with self.assertRaises(ValidationError):
+            delivery.full_clean()
+
+    def test_delivery_to_delivered_requires_all_tickets_delivered(self):
+        ticket = self.garment.create_default_ticket()
+        ticket.current_stage = WorkTicket.Stage.READY_FOR_DELIVERY
+        ticket.save()
+
+        delivery = Delivery(
+            order=self.order,
+            status=Delivery.Status.DELIVERED,
+            delivered_date=timezone.localdate(),
+        )
+
+        with self.assertRaises(ValidationError):
+            delivery.full_clean()
+
+    def test_delivered_order_cannot_regress(self):
+        ticket = self.garment.create_default_ticket()
+        ticket.current_stage = WorkTicket.Stage.DELIVERED
+        ticket.save()
+
+        Delivery.objects.create(
+            order=self.order,
+            status=Delivery.Status.DELIVERED,
+        )
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.DELIVERED)
+
+        self.order.status = Order.Status.IN_PRODUCTION
+        with self.assertRaises(ValidationError):
+            self.order.full_clean()

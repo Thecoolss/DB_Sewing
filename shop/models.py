@@ -82,7 +82,7 @@ class Order(models.Model):
         blank=True,
         related_name="assigned_orders",
     )
-    order_date = models.DateField(default=timezone.now)
+    order_date = models.DateField(default=timezone.localdate)
     due_date = models.DateField()
     status = models.CharField(
         max_length=20,
@@ -115,6 +115,23 @@ class Order(models.Model):
             raise ValidationError(
                 "Completed or delivered orders cannot keep tickets in active production stages."
             )
+
+        # Once an order is DELIVERED, it cannot be regressed (only stay DELIVERED or be CANCELLED).
+        if self.pk:
+            previous_status = (
+                Order.objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+            if (
+                previous_status == self.Status.DELIVERED
+                and self.status not in {self.Status.DELIVERED, self.Status.CANCELLED}
+            ):
+                raise ValidationError(
+                    {
+                        "status": "Delivered orders cannot be moved back to an earlier status.",
+                    }
+                )
 
     def _has_active_tickets(self):
         terminal = {
@@ -274,12 +291,16 @@ class WorkTicket(models.Model):
         return self.ticket_number
 
     def clean(self):
-        if self.deadline < self.garment.order.order_date:
+        if (
+            self.garment_id
+            and self.deadline
+            and self.deadline < self.garment.order.order_date
+        ):
             raise ValidationError(
                 {"deadline": "Ticket deadline must be on/after the order date."}
             )
 
-        if self.assigned_worker and not self.assigned_worker.active:
+        if self.assigned_worker_id and not self.assigned_worker.active:
             raise ValidationError(
                 {"assigned_worker": "Tickets can only be assigned to active employees."}
             )
@@ -395,19 +416,64 @@ class Delivery(models.Model):
                 {"delivered_date": "Delivered date cannot be before the order date."}
             )
 
+        # Tickets must be at least Ready-for-delivery before this delivery can be Ready/Delivered.
+        if self.status in {self.Status.READY, self.Status.DELIVERED}:
+            non_terminal = WorkTicket.objects.filter(garment__order=self.order).exclude(
+                current_stage__in=[
+                    WorkTicket.Stage.READY_FOR_DELIVERY,
+                    WorkTicket.Stage.DELIVERED,
+                ]
+            )
+            if non_terminal.exists():
+                raise ValidationError(
+                    {
+                        "status": (
+                            "Delivery cannot be marked Ready/Delivered while tickets are still "
+                            "in active production stages."
+                        )
+                    }
+                )
+
+        # Stricter rule: closing as Delivered requires every ticket to be Delivered.
+        if self.status == self.Status.DELIVERED:
+            not_delivered = WorkTicket.objects.filter(garment__order=self.order).exclude(
+                current_stage=WorkTicket.Stage.DELIVERED
+            )
+            if not_delivered.exists():
+                raise ValidationError(
+                    {
+                        "status": (
+                            "Delivery cannot be marked Delivered until every ticket reaches the "
+                            "Delivered stage."
+                        )
+                    }
+                )
+
     def save(self, *args, **kwargs):
         if self.status == self.Status.DELIVERED and not self.delivered_date:
             self.delivered_date = timezone.localdate()
         super().save(*args, **kwargs)
 
-        if self.status == self.Status.READY and self.order.status != Order.Status.DELIVERED:
-            self.order.status = Order.Status.COMPLETED
-            if not self.order.completed_at:
-                self.order.completed_at = timezone.now()
-            self.order.save(update_fields=["status", "completed_at"])
+        # Decide the order status that should mirror this delivery state.
+        # NOTE: DELIVERED is terminal for the order — never roll an order out of DELIVERED.
+        desired_status = None
+        if self.status == self.Status.PENDING:
+            if self.order.status == Order.Status.COMPLETED:
+                desired_status = Order.Status.IN_PRODUCTION
+        elif self.status == self.Status.READY:
+            if self.order.status not in {Order.Status.COMPLETED, Order.Status.DELIVERED}:
+                desired_status = Order.Status.COMPLETED
+        elif self.status == self.Status.DELIVERED:
+            if self.order.status != Order.Status.DELIVERED:
+                desired_status = Order.Status.DELIVERED
 
-        if self.status == self.Status.DELIVERED and self.order.status != Order.Status.DELIVERED:
-            self.order.status = Order.Status.DELIVERED
-            if not self.order.completed_at:
+        if desired_status and desired_status != self.order.status:
+            self.order.status = desired_status
+            if desired_status in {
+                Order.Status.COMPLETED,
+                Order.Status.DELIVERED,
+            } and not self.order.completed_at:
                 self.order.completed_at = timezone.now()
+            elif desired_status == Order.Status.IN_PRODUCTION:
+                self.order.completed_at = None
             self.order.save(update_fields=["status", "completed_at"])

@@ -5,7 +5,7 @@
 
 {% block tools %}
     <div class="tools">
-        <a class="btn" href="/admin/shop/order/?customer__id__exact={{ customer.id }}">Filter in admin</a>
+        <a class="btn" href="{% url 'admin:shop_order_changelist' %}?customer__id__exact={{ customer.id }}">Filter in admin</a>
         <a class="btn primary" href="{% url 'shop:customer_search' %}">Back to lookup</a>
     </div>
 {% endblock tools %}

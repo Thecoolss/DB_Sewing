@@ -7,7 +7,7 @@
 {% block tools %}
     <div class="tools">
         <a class="btn primary" href="{{ overdue_url }}">Review overdue queue</a>
-        <a class="btn" href="/admin/">Open admin</a>
+        <a class="btn" href="{% url 'admin:index' %}">Open admin</a>
     </div>
 {% endblock tools %}
 
@@ -32,6 +32,11 @@
         <div class="kpi-label">Completed</div>
         <div class="kpi-value">{{ completed_count }}</div>
         <a class="kpi-link" href="{% url 'shop:order_monitor' 'completed' %}">Browse completed &rarr;</a>
+    </div>
+    <div class="kpi-card kpi-green">
+        <div class="kpi-label">Delivered</div>
+        <div class="kpi-value">{{ delivered_count }}</div>
+        <a class="kpi-link" href="{% url 'shop:order_monitor' 'delivered' %}">Browse delivered &rarr;</a>
     </div>
 </section>
 

@@ -18,6 +18,7 @@ def dashboard_home(request):
         status__in=[Order.Status.DRAFT, Order.Status.IN_PRODUCTION],
     )
     completed_qs = Order.objects.filter(status=Order.Status.COMPLETED)
+    delivered_qs = Order.objects.filter(status=Order.Status.DELIVERED)
 
     ticket_summary = (
         WorkTicket.objects.values("current_stage")
@@ -40,6 +41,7 @@ def dashboard_home(request):
         "in_production_count": in_production_qs.count(),
         "overdue_count": overdue_qs.count(),
         "completed_count": completed_qs.count(),
+        "delivered_count": delivered_qs.count(),
         "ticket_summary": ticket_summary_rows,
         "recent_orders": Order.objects.select_related("customer").order_by("-order_date")[:10],
     }
