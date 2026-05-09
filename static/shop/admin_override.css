@@ -1,7 +1,9 @@
 /* Card-style changelist cells (Orders / Work tickets) */
 .ss-admin-order-card,
 .ss-admin-ticket-card,
-.sss-admin-ticket-card {
+.sss-admin-ticket-card,
+.sss-ticket-widget-row .sss-admin-ticket-card,
+.ss-ticket-widget-row .sss-admin-ticket-card {
     background: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(255, 255, 255, 0.10) !important;
     border-radius: 14px !important;
@@ -52,7 +54,9 @@
 
 #result_list tbody td:has(.ss-admin-order-card),
 #result_list tbody td:has(.ss-admin-ticket-card),
-#result_list tbody td:has(.sss-admin-ticket-card) {
+#result_list tbody td:has(.sss-admin-ticket-card),
+#result_list tbody td:has(.sss-ticket-widget-row),
+#result_list tbody td:has(.ss-ticket-widget-row) {
     padding: 12px 14px !important;
     vertical-align: top !important;
 }
@@ -756,14 +760,57 @@ fieldset.module.ss-pricing-fieldset > h2 {
 
 
 
-/* Work ticket changelist — prominent stage + Next stage on the card */
-.sss-ticket-card-wide {
-    max-width: 640px !important;
+/* Work ticket changelist — grid: card | Next stage (always reserves button column) */
+/*
+ * Unfold’s list <td> classes include h-[45px] + overflow-hidden; that clips tall
+ * ticket widgets and can make the “Next stage” control untestable (row 1 is
+ * most visible when the table is underlapped by the search strip / scroll chrome).
+ */
+#result_list tbody td.field-ticket_summary_widget {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    align-items: flex-start !important;
 }
-.sss-ticket-stage-bar {
+#result_list tbody td.field-ticket_summary_widget::before {
+    align-self: flex-start !important;
+}
+.ss-ticket-widget-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: start !important;
+    gap: 14px 18px !important;
+    width: 100% !important;
+    max-width: 960px !important;
+    position: relative !important;
+    z-index: 1 !important;
+    isolation: isolate !important;
+}
+.ss-ticket-widget-row .sss-admin-ticket-card {
+    min-width: 0 !important;
+    margin-bottom: 0 !important;
+}
+.ss-ticket-widget-actions {
+    min-width: 148px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    padding-top: 2px !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+.ss-ticket-widget-actions form.ss-ticket-quick-next {
+    margin-bottom: 0 !important;
+}
+.ss-ticket-card-wide {
+    max-width: none !important;
+}
+.ss-ticket-stage-bar {
     margin: 0 0 12px 0 !important;
 }
-.sss-ticket-stage-pill {
+.ss-ticket-stage-pill {
     display: inline-block !important;
     padding: 8px 18px !important;
     border-radius: 9999px !important;
@@ -774,17 +821,29 @@ fieldset.module.ss-pricing-fieldset > h2 {
     border: 1px solid rgba(16,185,129,0.45) !important;
     color: var(--ss-green-text) !important;
 }
-.sss-ticket-quick-next__btn {
+/* Beat #main * { color: inherit } for submit buttons */
+#main .ss-ticket-quick-next__btn,
+#content .ss-ticket-quick-next__btn,
+.ss-ticket-quick-next__btn,
+#result_list .sss-wt-next-stage-btn {
     background: linear-gradient(135deg, #10b981, #059669) !important;
     border: none !important;
     border-radius: 9999px !important;
-    color: #fff !important;
+    color: #ffffff !important;
     font-weight: 700 !important;
     font-size: 13px !important;
-    padding: 8px 18px !important;
+    line-height: 1.2 !important;
+    padding: 10px 18px !important;
+    min-height: 40px !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
     cursor: pointer !important;
     box-shadow: 0 2px 12px rgba(16,185,129,0.35) !important;
+    position: relative !important;
+    z-index: 30 !important;
+    pointer-events: auto !important;
 }
+
 
 /* ── Select2 / autocomplete widgets ───────────────────────────── */
 .select2-container--default .select2-selection,

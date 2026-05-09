@@ -3,7 +3,6 @@ import json
 from django import forms
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.middleware.csrf import get_token
 from django.db.models import Count, Q
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -758,15 +757,6 @@ class WorkTicketAdmin(StaffEditableModelAdmin):
         "garment__garment_type__name",
     )
     inlines = (StatusHistoryInline,)
-    _wt_changelist_request = None
-
-    def changelist_view(self, request, extra_context=None):
-        self._wt_changelist_request = request
-        try:
-            return super().changelist_view(request, extra_context)
-        finally:
-            self._wt_changelist_request = None
-
     actions = (
         "advance_to_design_confirmed",
         "advance_to_cutting",
@@ -777,45 +767,42 @@ class WorkTicketAdmin(StaffEditableModelAdmin):
         "advance_to_delivered",
     )
 
+    class Media:
+        js = ("admin/shop/workticket_changelist_next.js",)
+
     @admin.display(description="Ticket")
     def ticket_summary_widget(self, obj):
         order_ref = obj.garment.order.reference
         change_url = reverse("admin:shop_workticket_change", args=[obj.pk])
         overdue = " · overdue" if obj.is_overdue else ""
-        req = getattr(self, "_wt_changelist_request", None)
-        csrf = get_token(req) if req is not None else ""
         advance_url = reverse("shop:ticket_next_stage", args=[obj.pk])
         redir = reverse("admin:shop_workticket_changelist")
 
+        # fetch() POST — no nested <form> inside Unfold's bulk-action #changelist-form (fixes row 1).
         advance_block = ""
-        if obj.current_stage != WorkTicket.Stage.DELIVERED and req is not None:
+        if obj.current_stage != WorkTicket.Stage.DELIVERED:
             advance_block = format_html(
-                '<form method="post" action="{}" class="ss-ticket-quick-next mb-3 flex flex-wrap items-center gap-2">'
-                '<input type="hidden" name="csrfmiddlewaretoken" value="{}"/>'
-                '<input type="hidden" name="next" value="{}" />'
-                '<button type="submit" class="sss-ticket-quick-next__btn">'
-                "Next stage →"
-                "</button>"
-                "</form>",
+                '<div class="sss-ticket-widget-actions ss-ticket-widget-actions">'
+                '<button type="button" class="sss-wt-next-stage-btn ss-ticket-quick-next__btn" '
+                'data-post-url="{}" data-next="{}">Next stage →</button>'
+                "</div>",
                 advance_url,
-                csrf,
                 redir,
             )
 
         stage_label = obj.get_current_stage_display()
-        return format_html(
-            '<div class="sss-admin-ticket-card ss-ticket-card-wide">{}{}'
-            '<a class="ss-admin-order-card__link" href="{}">'
-            '<div class="ss-admin-order-card__ref">{}</div>'
-            '<div class="ss-admin-order-card__customer">{} · Order {}</div>'
-            '<div class="ss-admin-order-card__meta">Worker: {} · Due: {}{} · {}</div>'
-            '<div class="ss-admin-order-card__hint">Open full ticket →</div></a>'
-            "</div>",
-            advance_block,
-            format_html(
-                '<div class="sss-ticket-stage-bar"><span class="sss-ticket-stage-pill">{}</span></div>',
-                stage_label,
-            ),
+        stage_bar = format_html(
+            '<div class="ss-ticket-stage-bar"><span class="ss-ticket-stage-pill">{}</span></div>',
+            stage_label,
+        )
+        card_inner = format_html(
+            '{}'
+            '<a class="sss-admin-order-card__link ss-admin-order-card__link" href="{}">'
+            '<div class="sss-admin-order-card__ref ss-admin-order-card__ref">{}</div>'
+            '<div class="sss-admin-order-card__customer ss-admin-order-card__customer">{} · Order {}</div>'
+            '<div class="sss-admin-order-card__meta ss-admin-order-card__meta">Worker: {} · Due: {}{} · {}</div>'
+            '<div class="sss-admin-order-card__hint ss-admin-order-card__hint">Open full ticket →</div></a>',
+            stage_bar,
             change_url,
             obj.ticket_number,
             obj.garment.garment_type,
@@ -824,6 +811,14 @@ class WorkTicketAdmin(StaffEditableModelAdmin):
             obj.deadline,
             overdue,
             obj.get_priority_display(),
+        )
+        return format_html(
+            '<div class="ss-ticket-widget-row">'
+            '<div class="sss-admin-ticket-card ss-ticket-card-wide">{}</div>'
+            "{}"
+            "</div>",
+            card_inner,
+            advance_block,
         )
 
     def save_model(self, request, obj, form, change):
