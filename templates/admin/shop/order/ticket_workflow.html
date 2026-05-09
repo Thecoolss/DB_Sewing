@@ -1,0 +1,51 @@
+{% load i18n %}
+{% if order_tickets_workflow %}
+<section
+    class="border border-base-200 dark:border-base-700 rounded-default bg-white dark:bg-base-900 shadow-xs p-5 mb-6 max-w-4xl"
+    aria-label="{% trans 'Production tickets' %}"
+>
+    <h3 class="text-font-important-light dark:text-font-important-dark text-sm font-semibold uppercase tracking-wide mb-4">
+        {% trans "Production tickets" %}
+    </h3>
+    <p class="text-sm opacity-80 mb-4">
+        {% trans "Advance each garment through the shop. The worker updates automatically for the new stage when possible." %}
+    </p>
+    <div class="flex flex-col gap-4">
+        {% for t in order_tickets_workflow %}
+        <div
+            class="rounded-default border border-base-200 dark:border-base-700 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+        >
+            <div>
+                <div class="font-mono font-bold text-base">{{ t.ticket_number }}</div>
+                <div class="text-sm mt-1">{{ t.garment.garment_type }}</div>
+                <div class="text-sm opacity-75 mt-1">
+                    {% trans "Stage" %}: {{ t.get_current_stage_display }}
+                    · {% trans "Worker" %}:
+                    {% if t.assigned_worker %}{{ t.assigned_worker.full_name }}{% else %}<span class="italic">—</span>{% endif %}
+                </div>
+                <div class="text-sm opacity-75">{% trans "Deadline" %}: {{ t.deadline }}</div>
+            </div>
+            <div class="flex-shrink-0">
+                {% if t.current_stage != "delivered" %}
+                <form method="post" action="{% url 'shop:ticket_next_stage' t.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">
+                    <button
+                        type="submit"
+                        class="border border-transparent font-medium rounded-default px-4 py-2 text-sm text-white shadow-sm"
+                        style="background: linear-gradient(135deg,#10b981,#059669);"
+                    >
+                        {% trans "Next stage" %}
+                    </button>
+                </form>
+                {% else %}
+                <span class="inline-flex items-center px-3 py-1 rounded-default text-sm font-medium bg-green-900/30 text-green-300 border border-green-700/40">
+                    {% trans "Done" %}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

@@ -5,9 +5,11 @@
 {% block page_title %}{{ page_title }}{% endblock page_title %}
 
 {% block tools %}
-    <div class="tools">
-        <a class="btn primary" href="{{ overdue_url }}">Review overdue queue</a>
-        <a class="btn" href="{% url 'admin:index' %}">Open admin</a>
+    <div class="tools tools-large">
+        <a class="btn primary btn-large" href="{% url 'admin:shop_order_add' %}">+ New order</a>
+        <a class="btn" href="{% url 'shop:order_board' 'active' %}">Order board</a>
+        <a class="btn" href="{{ overdue_url }}">Overdue queue</a>
+        <a class="btn" href="{% url 'admin:index' %}">Admin (full data)</a>
     </div>
 {% endblock tools %}
 
@@ -16,81 +18,42 @@
     <div class="kpi-card kpi-blue">
         <div class="kpi-label">Pending</div>
         <div class="kpi-value">{{ pending_count }}</div>
-        <a class="kpi-link" href="{% url 'shop:order_monitor' 'pending' %}">Browse pending &rarr;</a>
+        <a class="kpi-link" href="{% url 'shop:order_board' 'active' %}">Open card board &rarr;</a>
     </div>
     <div class="kpi-card kpi-purple">
         <div class="kpi-label">In production</div>
         <div class="kpi-value">{{ in_production_count }}</div>
-        <a class="kpi-link" href="{% url 'shop:order_monitor' 'production' %}">Browse production &rarr;</a>
+        <a class="kpi-link" href="{% url 'shop:order_board' 'active' %}">Open card board &rarr;</a>
     </div>
     <div class="kpi-card kpi-red">
         <div class="kpi-label">Overdue</div>
         <div class="kpi-value">{{ overdue_count }}</div>
-        <a class="kpi-link" href="{% url 'shop:order_monitor' 'overdue' %}">Open overdue list &rarr;</a>
+        <a class="kpi-link" href="{{ overdue_url }}">Filtered overdue list &rarr;</a>
     </div>
     <div class="kpi-card kpi-green">
         <div class="kpi-label">Completed</div>
         <div class="kpi-value">{{ completed_count }}</div>
-        <a class="kpi-link" href="{% url 'shop:order_monitor' 'completed' %}">Browse completed &rarr;</a>
+        <a class="kpi-link" href="{% url 'shop:order_board' 'active' %}">On active board &rarr;</a>
     </div>
     <div class="kpi-card kpi-green">
         <div class="kpi-label">Delivered</div>
         <div class="kpi-value">{{ delivered_count }}</div>
-        <a class="kpi-link" href="{% url 'shop:order_monitor' 'delivered' %}">Browse delivered &rarr;</a>
+        <a class="kpi-link" href="{% url 'shop:order_board' 'closed' %}">Closed tab &rarr;</a>
     </div>
 </section>
 
 <div class="section-header">
     <h3 class="section-title">Ticket status mix</h3>
 </div>
-<div class="table-wrap" style="margin-bottom:28px;">
-    <table>
-        <thead>
-            <tr>
-                <th>Stage</th>
-                <th>Total tickets</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for item in ticket_summary %}
-            <tr>
-                <td>{{ item.label }}</td>
-                <td class="mono">{{ item.total }}</td>
-            </tr>
-        {% empty %}
-            <tr><td colspan="2" class="muted">No tickets yet.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<div class="ticket-mix" role="list" aria-label="Tickets by stage">
+{% for item in ticket_summary %}
+    <div class="ticket-mix-item" role="listitem">
+        <span class="ticket-mix-label">{{ item.label }}</span>
+        <strong class="ticket-mix-n">{{ item.total }}</strong>
+    </div>
+{% empty %}
+    <p class="muted">No tickets yet.</p>
+{% endfor %}
 </div>
 
-<div class="section-header">
-    <h3 class="section-title">Recent orders</h3>
-</div>
-<div class="table-wrap">
-    <table>
-        <thead>
-            <tr>
-                <th>Reference</th>
-                <th>Customer</th>
-                <th>Status</th>
-                <th>Due date</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for order in recent_orders %}
-            <tr>
-                <td class="mono">
-                    <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
-                </td>
-                <td>{{ order.customer.full_name }}</td>
-                <td><span class="badge gray">{{ order.get_status_display }}</span></td>
-                <td class="muted">{{ order.due_date }}</td>
-            </tr>
-        {% empty %}
-            <tr><td colspan="4" class="muted">No orders found.</td></tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
 {% endblock content %}

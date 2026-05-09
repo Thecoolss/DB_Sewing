@@ -4,83 +4,60 @@
 {% block page_title %}{{ page_title }}{% endblock page_title %}
 
 {% block tools %}
-    <div class="tools">
-        <a class="btn primary" href="{% url 'admin:shop_order_changelist' %}">Browse in admin</a>
+    <div class="tools tools-large">
+        <a class="btn primary" href="{% url 'shop:order_board' 'active' %}">Card board</a>
         {% if filter_name != "delivered" %}
-            <a class="btn" href="{% url 'shop:order_monitor' 'delivered' %}">View delivered</a>
+            <a class="btn" href="{% url 'shop:order_monitor' 'delivered' %}">Delivered</a>
         {% endif %}
     </div>
 {% endblock tools %}
 
 {% block content %}
     {% if filter_name == "overdue" %}
-        <p class="muted" style="margin:0 0 16px;line-height:1.55;font-size:13px;">
-            Showing draft and in-production orders with a missed due date. Use Open in admin after triage.
-        </p>
+        <p class="lead-text">Showing draft and in-production orders with a missed due date.</p>
     {% endif %}
 
-    <div class="table-tools">
-        <span class="mini">{{ orders|length }} row{{ orders|length|pluralize }}</span>
-        <span class="mini">Today &nbsp;<span class="mono">{{ today }}</span></span>
-    </div>
+    <p class="lead-text">{{ orders|length }} order{{ orders|length|pluralize }} · today {{ today }}</p>
 
-    <div class="table-wrap">
-        <table role="grid" aria-label="Orders table">
-            <thead>
-                <tr>
-                    <th>Reference</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Schedule</th>
-                    <th>Due</th>
-                    <th style="width:160px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for row in orders %}
-                {% with order=row.model %}
-                <tr>
-                    <td>
-                        {% if row.overdue %}
-                            <span class="badge danger" title="Overdue while still active">Overdue</span><br>
-                        {% endif %}
-                        <span class="mono" style="margin-top:{% if row.overdue %}6{% else %}0{% endif %}px;display:inline-block;">
-                            <a href="{{ row.admin_change_url }}">{{ order.reference }}</a>
-                        </span>
-                    </td>
-                    <td>
-                        {{ order.customer.full_name }}
-                        <div class="muted" style="margin-top:6px;font-size:12px;">Placed {{ order.order_date }}</div>
-                    </td>
-                    <td>
-                        <span class="badge gray">{{ row.status_label }}</span>
-                        {% if order.notes %}
-                            <div class="muted" style="margin-top:8px;font-size:12px;line-height:1.45;">
-                                {{ order.notes|truncatechars:140 }}
-                            </div>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="badge {{ row.due_badge_class }}" title="Relative to today">
-                            {% if row.due_badge_days > 0 %}+{% endif %}{{ row.due_badge_days }}d
-                        </span>
-                        <div class="muted" style="margin-top:6px;font-size:12px;">Ends {{ order.due_date }}</div>
-                    </td>
-                    <td class="muted">{{ order.due_date }}</td>
-                    <td>
-                        <div style="display:flex;flex-direction:column;gap:8px;">
-                            <a class="btn primary" href="{{ row.admin_change_url }}">Open in admin</a>
-                            <a class="btn" href="{% url 'admin:shop_workticket_changelist' %}?q={{ order.reference|urlencode }}">Find tickets</a>
-                        </div>
-                    </td>
-                </tr>
-                {% endwith %}
-            {% empty %}
-                <tr>
-                    <td colspan="6" class="muted" style="padding:20px 16px;">No orders in this queue yet.</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+    <div class="widget-grid">
+    {% for row in orders %}
+        {% with order=row.model %}
+        <article class="order-widget {% if row.overdue %}widget-overdue{% endif %} priority-{{ order.priority }}">
+            <div class="widget-header">
+                <span class="widget-ref">{{ order.reference }}</span>
+                {% if order.priority == 'high' %}
+                    <span class="prio-badge prio-high">High</span>
+                {% elif order.priority == 'low' %}
+                    <span class="prio-badge prio-low">Low</span>
+                {% else %}
+                    <span class="prio-badge prio-mid">Medium</span>
+                {% endif %}
+            </div>
+            <div class="widget-customer">{{ order.customer.full_name }}</div>
+            <div class="widget-meta">{{ row.status_label }}</div>
+            <div class="widget-meta">Due {{ order.due_date }}
+                {% if row.due_badge_days >= 0 %}(in {{ row.due_badge_days }}d){% else %}({{ row.due_badge_days }}d ago){% endif %}
+            </div>
+            <div class="widget-meta">Placed {{ order.order_date }}</div>
+            {% if row.overdue %}
+                <div class="widget-meta" style="color:var(--danger);font-weight:700;">Overdue</div>
+            {% endif %}
+            <details class="widget-more">
+                <summary class="widget-summary-btn">More details</summary>
+                <div class="widget-details">
+                    {% if order.notes %}<p>{{ order.notes|truncatechars:200 }}</p>{% endif %}
+                    <p>Payment: {{ order.get_payment_status_display }}</p>
+                    <p>Total: {% if order.total_price %}€{{ order.total_price }}{% else %}—{% endif %}</p>
+                </div>
+            </details>
+            <div class="widget-actions">
+                <a class="btn primary btn-block" href="{{ row.admin_change_url }}">Open &amp; edit</a>
+                <a class="btn btn-block" href="{% url 'shop:order_detail' order.pk %}">Quick view</a>
+            </div>
+        </article>
+        {% endwith %}
+    {% empty %}
+        <p class="lead-text">No orders in this queue yet.</p>
+    {% endfor %}
     </div>
 {% endblock content %}

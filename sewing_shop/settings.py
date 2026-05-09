@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "shop",
+    "shop.apps.ShopConfig",
 ]
 
 MIDDLEWARE = [
@@ -99,6 +99,10 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Ops site uses @staff_member_required; default /accounts/login/ is not wired — use admin login.
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/"
+
 UNFOLD = {
     "SITE_TITLE": "Sewing Shop",
     "SITE_HEADER": "Sewing Shop",
@@ -111,6 +115,16 @@ UNFOLD = {
             "icon": "dashboard",
             "title": _("Operations dashboard"),
             "link": reverse_lazy("shop:dashboard"),
+        },
+        {
+            "icon": "view_kanban",
+            "title": _("Order board"),
+            "link": reverse_lazy("shop:order_board", kwargs={"tab": "active"}),
+        },
+        {
+            "icon": "bar_chart",
+            "title": _("Reports"),
+            "link": reverse_lazy("shop:reports"),
         },
     ],
     "STYLES": [

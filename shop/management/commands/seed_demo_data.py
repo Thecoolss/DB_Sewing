@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from random import choice, randint
 
 from django.core.management.base import BaseCommand
@@ -25,18 +26,54 @@ class Command(BaseCommand):
         today = timezone.localdate()
 
         workers = []
-        for name in ["Amira Nassar", "Lina Haddad", "Omar Khoury"]:
-            worker, _ = Employee.objects.get_or_create(full_name=name, defaults={"role": "Tailor"})
+        for name, role, stage in [
+            ("Amira Nassar", "Cutter", WorkTicket.Stage.CUTTING),
+            ("Lina Haddad", "Stitcher", WorkTicket.Stage.SEWING),
+            ("Omar Khoury", "Finisher", WorkTicket.Stage.FINISHING),
+        ]:
+            worker, _ = Employee.objects.update_or_create(
+                full_name=name,
+                defaults={"role": role, "specialty_stage": stage, "active": True},
+            )
             workers.append(worker)
 
-        materials = []
-        for material_name in ["Cotton Fabric", "Linen Fabric", "Polyester Thread", "Buttons"]:
-            material, _ = Material.objects.get_or_create(name=material_name, defaults={"unit": "units"})
-            materials.append(material)
+        fabric_materials = []
+        for material_name, kind, addon in [
+            ("Cotton Fabric", Material.Kind.FABRIC, Decimal("3.00")),
+            ("Linen Fabric", Material.Kind.FABRIC, Decimal("5.00")),
+            ("Polyester Thread", Material.Kind.TRIM, Decimal("1.00")),
+        ]:
+            material, _ = Material.objects.update_or_create(
+                name=material_name,
+                defaults={
+                    "unit": "meters",
+                    "kind": kind,
+                    "price_addon": addon,
+                },
+            )
+            fabric_materials.append(material)
+
+        notions_material, _ = Material.objects.update_or_create(
+            name="Buttons",
+            defaults={
+                "unit": "units",
+                "kind": Material.Kind.NOTIONS,
+                "price_addon": Decimal("0.00"),
+            },
+        )
+        materials_for_trims = fabric_materials + [notions_material]
 
         garment_types = []
-        for type_name in ["Dress", "Shirt", "Skirt", "Blazer"]:
-            garment_type, _ = GarmentType.objects.get_or_create(name=type_name)
+        for type_name, base in [
+            ("Dress", Decimal("45.00")),
+            ("Shirt", Decimal("25.00")),
+            ("Skirt", Decimal("30.00")),
+            ("Blazer", Decimal("55.00")),
+        ]:
+            garment_type, _ = GarmentType.objects.update_or_create(
+                name=type_name,
+                defaults={"base_price": base, "active": True},
+            )
             garment_types.append(garment_type)
 
         # Pick ticket stages and delivery status that don't violate model rules.
@@ -92,7 +129,7 @@ class Command(BaseCommand):
                     order=order,
                     garment_type=choice(garment_types),
                     defaults={
-                        "primary_material": choice(materials),
+                        "primary_material": choice(fabric_materials),
                         "quantity": randint(1, 2),
                         "color": choice(["Blue", "Black", "Green"]),
                         "design_notes": "Slim fit with simple lining.",
@@ -112,7 +149,7 @@ class Command(BaseCommand):
 
                 GarmentMaterial.objects.get_or_create(
                     garment=garment,
-                    material=choice(materials),
+                    material=choice(materials_for_trims),
                     defaults={"quantity": 2.5},
                 )
 
@@ -128,7 +165,7 @@ class Command(BaseCommand):
                 )
 
             if order_status == Order.Status.COMPLETED:
-                delivery_status = Delivery.Status.READY
+                delivery_status = Delivery.Status.READY_FOR_PICKUP
                 delivered_date = None
             elif order_status == Order.Status.DELIVERED:
                 delivery_status = Delivery.Status.DELIVERED

@@ -4,72 +4,72 @@
 {% block page_title %}{{ customer.full_name }}{% endblock page_title %}
 
 {% block tools %}
-    <div class="tools">
-        <a class="btn" href="{% url 'admin:shop_order_changelist' %}?customer__id__exact={{ customer.id }}">Filter in admin</a>
-        <a class="btn primary" href="{% url 'shop:customer_search' %}">Back to lookup</a>
+    <div class="tools tools-large">
+        <a class="btn primary" href="{% url 'admin:shop_customer_change' customer.id %}">Edit customer</a>
+        <a class="btn" href="{% url 'shop:customer_search' %}">Back to lookup</a>
     </div>
 {% endblock tools %}
 
 {% block content %}
-<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
-    {% if customer.phone %}
-    <div>
-        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Phone</div>
-        <div style="font-size:14px;font-weight:500;">{{ customer.phone }}</div>
-    </div>
-    {% endif %}
-    {% if customer.email %}
-    <div>
-        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px;">Email</div>
-        <div style="font-size:14px;font-weight:500;">{{ customer.email }}</div>
-    </div>
-    {% endif %}
-</div>
+<section class="customer-info">
+    {% if customer.phone %}<div class="customer-info__chip"><span class="customer-info__label">Phone</span> {{ customer.phone }}</div>{% endif %}
+    {% if customer.email %}<div class="customer-info__chip"><span class="customer-info__label">Email</span> {{ customer.email }}</div>{% endif %}
+    {% if customer.address %}<div class="customer-info__chip"><span class="customer-info__label">Address</span> {{ customer.address }}</div>{% endif %}
+</section>
 
-<div class="section-header">
+<div class="section-header section-header-row">
     <h3 class="section-title">Order history</h3>
     <span class="mini">{{ orders|length }} order{{ orders|length|pluralize }}</span>
 </div>
 
-<div class="table-wrap">
-    <table role="grid" aria-label="Customer order history">
-        <thead>
-            <tr>
-                <th>Order ref</th>
-                <th>Status</th>
-                <th>Due date</th>
-                <th>Garments</th>
-                <th>Tickets</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for order in orders %}
-            <tr>
-                <td class="mono">
-                    <a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.reference }}</a>
-                </td>
-                <td><span class="badge gray">{{ order.get_status_display }}</span></td>
-                <td class="muted">{{ order.due_date }}</td>
-                <td class="muted">{{ order.garments.count }}</td>
-                <td>
-                    {% for garment in order.garments.all %}
-                        {% for ticket in garment.tickets.all %}
-                            <div style="font-size:12px;">
-                                <span class="mono">{{ ticket.ticket_number }}</span>
-                                <span class="badge gray" style="margin-left:4px;">{{ ticket.get_current_stage_display }}</span>
-                            </div>
-                        {% endfor %}
+<div class="widget-grid">
+{% for order in orders %}
+    <article class="order-widget priority-{{ order.priority }}">
+        <div class="widget-header">
+            <span class="widget-ref">{{ order.reference }}</span>
+            {% if order.priority == 'high' %}
+                <span class="prio-badge prio-high">High</span>
+            {% elif order.priority == 'low' %}
+                <span class="prio-badge prio-low">Low</span>
+            {% else %}
+                <span class="prio-badge prio-mid">Medium</span>
+            {% endif %}
+        </div>
+        <div class="widget-customer">{{ order.get_status_display }}</div>
+        <div class="widget-meta">Due {{ order.due_date }}</div>
+        <div class="widget-meta">{{ order.garments.count }} garment{{ order.garments.count|pluralize }}</div>
+        <details class="widget-more">
+            <summary class="widget-summary-btn">Tickets</summary>
+            <div class="widget-details">
+                {% for garment in order.garments.all %}
+                    {% for ticket in garment.tickets.all %}
+                        <p><strong>{{ ticket.ticket_number }}</strong> · {{ ticket.get_current_stage_display }}</p>
                     {% empty %}
-                        <span class="muted">—</span>
+                        <p>No tickets for {{ garment.garment_type }}.</p>
                     {% endfor %}
-                </td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="5" class="muted" style="padding:18px 16px;">No orders yet for this customer.</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+                {% empty %}
+                    <p>No garments yet.</p>
+                {% endfor %}
+            </div>
+        </details>
+        <div class="widget-actions">
+            <a class="btn primary btn-block" href="{% url 'admin:shop_order_change' order.pk %}">Open &amp; edit</a>
+            <a class="btn btn-block" href="{% url 'shop:order_detail' order.pk %}">Quick view</a>
+        </div>
+    </article>
+{% empty %}
+    <p class="lead-text">No orders yet for this customer.</p>
+{% endfor %}
 </div>
+
+{% if customer.profile_measurements.all %}
+<div class="section-header section-header-row">
+    <h3 class="section-title">Profile measurements</h3>
+</div>
+<div class="ticket-mix">
+{% for m in customer.profile_measurements.all %}
+    <div class="ticket-mix-item"><span class="ticket-mix-label">{{ m.name }}</span><strong class="ticket-mix-n">{{ m.value }}{{ m.unit }}</strong></div>
+{% endfor %}
+</div>
+{% endif %}
 {% endblock content %}

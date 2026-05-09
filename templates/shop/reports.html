@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Reports | Sewing Shop{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block content %}
+<p class="lead-text">Figures for <strong>{{ page_subtitle }}</strong> — each bar group is a week within this month (by order date).</p>
+
+<div class="report-cards">
+    <div class="report-card">
+        <div class="report-label">Orders (month)</div>
+        <div class="report-value">{{ order_count_month }}</div>
+    </div>
+    <div class="report-card">
+        <div class="report-label">Delivered revenue (month)</div>
+        <div class="report-value">€{{ delivered_revenue }}</div>
+    </div>
+</div>
+
+<h3 class="section-heading">Orders &amp; income by week (this month)</h3>
+{{ weekly_chart|json_script:"weekly-chart-data" }}
+<div class="chart-wrap chart-wrap-wide">
+    <canvas id="weeklyChart" width="700" height="340" aria-label="Orders and income by week"></canvas>
+</div>
+
+<h3 class="section-heading">Orders by status (all time)</h3>
+{{ by_status_chart|json_script:"by-status-chart" }}
+<div class="chart-wrap">
+    <canvas id="statusChart" width="400" height="260" aria-label="Orders by status"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const weeklyRaw = JSON.parse(document.getElementById('weekly-chart-data').textContent);
+    const wEl = document.getElementById('weeklyChart');
+    if (wEl && typeof Chart !== 'undefined' && weeklyRaw.length) {
+        new Chart(wEl, {
+            type: 'bar',
+            data: {
+                labels: weeklyRaw.map(function (r) { return r.label; }),
+                datasets: [
+                    {
+                        label: 'Orders placed',
+                        data: weeklyRaw.map(function (r) { return r.orders; }),
+                        backgroundColor: 'rgba(5, 150, 105, 0.55)',
+                        borderColor: 'rgba(5, 150, 105, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                    },
+                    {
+                        label: 'Income (order totals) €',
+                        data: weeklyRaw.map(function (r) { return r.income; }),
+                        backgroundColor: 'rgba(37, 99, 235, 0.45)',
+                        borderColor: 'rgba(37, 99, 235, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y1',
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            footer: function (items) {
+                                if (!items.length) return '';
+                                return items.some(function (i) { return i.datasetIndex === 1; })
+                                    ? 'Income = sum of order totals (€) for orders placed in that week.'
+                                    : '';
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 },
+                        title: { display: true, text: 'Order count' },
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Income €' },
+                    },
+                },
+            },
+        });
+    }
+
+    const statusEl = document.getElementById('statusChart');
+    const raw = JSON.parse(document.getElementById('by-status-chart').textContent);
+    const labels = raw.map(function (r) { return r.label; });
+    const data = raw.map(function (r) { return r.n; });
+    if (statusEl && typeof Chart !== 'undefined') {
+        new Chart(statusEl, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Orders',
+                    data: data,
+                    backgroundColor: 'rgba(5, 150, 105, 0.6)',
+                    borderColor: 'rgba(5, 150, 105, 1)',
+                    borderWidth: 1,
+                }],
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            },
+        });
+    }
+})();
+</script>
+{% endblock content %}

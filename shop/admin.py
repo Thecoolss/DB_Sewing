@@ -1,12 +1,21 @@
+import json
+
 from django import forms
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.middleware.csrf import get_token
+from django.db.models import Count, Q
+from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin, StackedInline, TabularInline
 
+from .workflow import STAGE_TO_ROLE, order_board_progress_label, role_for_stage
 from .models import (
     Customer,
+    CustomerMeasurement,
     Delivery,
     Employee,
     Garment,
@@ -16,6 +25,7 @@ from .models import (
     Measurement,
     Order,
     StatusHistory,
+    WorkflowEvent,
     WorkTicket,
 )
 
@@ -80,6 +90,10 @@ class GarmentInlineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "primary_material" in self.fields:
+            self.fields["primary_material"].queryset = Material.objects.filter(
+                kind__in=[Material.Kind.FABRIC, Material.Kind.TRIM],
+            ).order_by("name")
         if self.instance and self.instance.pk:
             first_measurement = self.instance.measurements.order_by("id").first()
             if first_measurement:
@@ -115,7 +129,6 @@ class GarmentInline(StackedInline):
                 "fields": (
                     ("garment_type", "primary_material"),
                     ("quantity", "color"),
-                    ("unit_price",),
                     "design_notes",
                 )
             },
@@ -158,32 +171,193 @@ class WorkTicketInline(TabularInline):
 # Catalogue / reference-data admins
 # ---------------------------------------------------------------------------
 
+class CustomerMeasurementInline(TabularInline):
+    model = CustomerMeasurement
+    extra = 0
+
+
 @admin.register(Customer)
 class CustomerAdmin(StaffEditableModelAdmin):
-    list_display = ("full_name", "phone", "email", "created_at")
-    list_display_links = ("full_name",)
+    list_display = ("customer_widget",)
+    list_display_links = None
     search_fields = ("full_name", "phone", "email")
     ordering = ("full_name",)
+    inlines = (CustomerMeasurementInline,)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_orders=Count("orders"))
+
+    @admin.display(description="Customer")
+    def customer_widget(self, obj):
+        url = reverse("admin:shop_customer_change", args=[obj.pk])
+        order_count = getattr(obj, "_orders", obj.orders.count())
+        return format_html(
+            '<div class="ss-admin-order-card"><a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__meta">Phone: {}</div>'
+            '<div class="ss-admin-order-card__meta">Email: {}</div>'
+            '<div class="ss-admin-order-card__meta">Orders so far: {}</div>'
+            '<div class="ss-admin-order-card__hint">Open customer →</div>'
+            "</a></div>",
+            url,
+            obj.full_name,
+            obj.phone or "—",
+            obj.email or "—",
+            order_count,
+        )
 
 
 @admin.register(Employee)
 class EmployeeAdmin(StaffEditableModelAdmin):
-    list_display = ("full_name", "role", "active", "phone")
-    list_filter = ("active", "role")
-    search_fields = ("full_name", "role", "phone")
+    """
+    Each employee is tied to a production stage (specialty). When you pick a
+    specialty, the role title is auto-filled (Cutter, Stitcher, Finisher…)
+    so assignments stay logical.
+    """
+
+    list_display = ("employee_widget",)
+    list_display_links = None
+    list_filter = ("active", "role", "specialty_stage")
+    search_fields = ("full_name", "role", "phone", "specialty_stage")
+
+    def get_queryset(self, request):
+        # Annotate with a count of currently-active tickets (not delivered).
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _active_tickets=Count(
+                    "tickets",
+                    filter=~Q(tickets__current_stage=WorkTicket.Stage.DELIVERED),
+                ),
+            )
+        )
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "specialty_stage":
+            kwargs["widget"] = forms.Select(
+                choices=[
+                    ("", "— Assign a pipeline stage (required while Active) —"),
+                ]
+                + list(WorkTicket.Stage.choices),
+            )
+            kwargs["required"] = False
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        # Keep job title in sync with specialty so each employee maps to a real
+        # production stage. We only fill the role when it's blank (so manual
+        # overrides like "Senior cutter" are preserved).
+        if obj.specialty_stage and not (obj.role or "").strip():
+            obj.role = role_for_stage(obj.specialty_stage)
+        super().save_model(request, obj, form, change)
+
+    @admin.display(description="Employee")
+    def employee_widget(self, obj):
+        url = reverse("admin:shop_employee_change", args=[obj.pk])
+        specialty = (
+            dict(WorkTicket.Stage.choices).get(obj.specialty_stage, "General")
+            if obj.specialty_stage
+            else "General"
+        )
+        active_tickets = getattr(obj, "_active_tickets", 0)
+        status_class = "ss-priority-low" if not obj.active else ""
+        active_label = "Active" if obj.active else "Inactive"
+        return format_html(
+            '<div class="ss-admin-order-card {}"><a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__customer">{}</div>'
+            '<div class="ss-admin-order-card__meta">Specialty: {}</div>'
+            '<div class="ss-admin-order-card__meta">Phone: {} · {}</div>'
+            '<div class="ss-admin-order-card__meta">In progress: {} ticket{}</div>'
+            '<div class="ss-admin-order-card__hint">Open employee →</div>'
+            "</a></div>",
+            status_class,
+            url,
+            obj.full_name,
+            obj.role or "—",
+            specialty,
+            obj.phone or "—",
+            active_label,
+            active_tickets,
+            "" if active_tickets == 1 else "s",
+        )
 
 
 @admin.register(Material)
 class MaterialAdmin(StaffEditableModelAdmin):
-    list_display = ("name", "unit", "created_at")
+    list_display = ("material_widget",)
+    list_display_links = None
+    list_filter = ("kind",)
     search_fields = ("name",)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(_used_as_primary=Count("primary_garments"))
+        )
+
+    @admin.display(description="Material")
+    def material_widget(self, obj):
+        url = reverse("admin:shop_material_change", args=[obj.pk])
+        used_as_primary = getattr(obj, "_used_as_primary", 0)
+        return format_html(
+            '<div class="ss-admin-order-card"><a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__customer">{}</div>'
+            '<div class="ss-admin-order-card__meta">Sold per: {}</div>'
+            '<div class="ss-admin-order-card__meta">Surcharge: €{}</div>'
+            '<div class="ss-admin-order-card__meta">Primary on {} garment{}</div>'
+            '<div class="ss-admin-order-card__hint">Open material →</div>'
+            "</a></div>",
+            url,
+            obj.name,
+            obj.get_kind_display(),
+            obj.unit,
+            obj.price_addon,
+            used_as_primary,
+            "" if used_as_primary == 1 else "s",
+        )
 
 
 @admin.register(GarmentType)
 class GarmentTypeAdmin(StaffEditableModelAdmin):
-    list_display = ("name", "active", "description")
+    list_display = ("garment_type_widget",)
+    list_display_links = None
     list_filter = ("active",)
     search_fields = ("name", "description")
+
+    def get_queryset(self, request):
+        return (
+            super().get_queryset(request).annotate(_garments=Count("garments"))
+        )
+
+    @admin.display(description="Garment type")
+    def garment_type_widget(self, obj):
+        url = reverse("admin:shop_garmenttype_change", args=[obj.pk])
+        garments = getattr(obj, "_garments", 0)
+        active_label = "Active" if obj.active else "Disabled"
+        active_class = "" if obj.active else "ss-priority-low"
+        return format_html(
+            '<div class="ss-admin-order-card {}"><a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__meta">Base price: €{}</div>'
+            '<div class="ss-admin-order-card__meta">{}</div>'
+            '<div class="ss-admin-order-card__meta">Used on {} garment{}</div>'
+            '<div class="ss-admin-order-card__hint">Open type →</div>'
+            "</a></div>",
+            active_class,
+            url,
+            obj.name,
+            obj.base_price,
+            active_label,
+            garments,
+            "" if garments == 1 else "s",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -192,18 +366,32 @@ class GarmentTypeAdmin(StaffEditableModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(StaffEditableModelAdmin):
-    list_display = (
-        "reference", "customer", "assigned_employee",
-        "status", "delivery_status", "due_date",
-        "total_price", "deposit_paid", "balance_due_display", "payment_status",
+    """Changelist uses card widgets instead of a wide table (bulk actions still work)."""
+    change_form_outer_before_template = "admin/shop/order/mark_fully_paid_banner.html"
+    change_form_outer_after_template = "admin/shop/order/ticket_workflow.html"
+    autocomplete_fields = ("customer",)
+    list_display = ("order_summary_widget",)
+    list_display_links = None
+    list_filter = (
+        "status",
+        "priority",
+        "payment_status",
+        "delivery__status",
+        "order_date",
+        "due_date",
+        "assigned_employee",
     )
-    list_display_links = ("reference",)
-    list_filter = ("status", "payment_status", "delivery__status", "order_date", "due_date", "assigned_employee")
     search_fields = ("reference", "customer__full_name", "assigned_employee__full_name")
     date_hierarchy = "order_date"
     list_select_related = ("customer", "assigned_employee", "delivery")
     ordering = ("due_date", "-order_date")
-    readonly_fields = ("reference", "completed_at", "balance_due_display", "measurement_overview", "ticket_overview")
+    readonly_fields = (
+        "reference",
+        "completed_at",
+        "computed_total_display",
+        "balance_due_display",
+        "measurement_overview",
+    )
     fieldsets = (
         (
             "Order",
@@ -212,18 +400,9 @@ class OrderAdmin(StaffEditableModelAdmin):
                     "reference",
                     ("customer", "assigned_employee"),
                     ("order_date", "due_date"),
-                    ("status", "completed_at"),
+                    ("priority", "status", "completed_at"),
                     "notes",
-                )
-            },
-        ),
-        (
-            "Pricing",
-            {
-                "fields": (
-                    ("total_price", "deposit_paid"),
-                    ("payment_status", "balance_due_display"),
-                )
+                ),
             },
         ),
         (
@@ -231,27 +410,190 @@ class OrderAdmin(StaffEditableModelAdmin):
             {"fields": ("measurement_overview",)},
         ),
         (
-            "Production tickets",
-            {"fields": ("ticket_overview",)},
+            "Pricing (auto-calculated — final price is editable)",
+            {
+                # CSS uses ss-pricing-fieldset to push this fieldset visually
+                # below the Garments / Delivery inlines via flex `order`.
+                "classes": ("ss-pricing-fieldset",),
+                "description": (
+                    "Total is the sum of garment-type base prices plus any fabric surcharge "
+                    "(quantity × (base + addon)). The live total below updates as you edit "
+                    "garments above; the saved value commits on Save."
+                ),
+                "fields": (
+                    "use_automatic_pricing",
+                    "computed_total_display",
+                    ("total_price", "deposit_paid"),
+                    ("payment_status", "balance_due_display"),
+                ),
+            },
         ),
     )
     inlines = (GarmentInline, DeliveryInline)
-    actions = ("generate_work_tickets", "mark_as_in_production", "mark_as_completed", "mark_as_delivered")
 
-    # --- display helpers ---
+    class Media:
+        js = ("admin/shop/order_pricing.js",)
+    actions = (
+        "generate_work_tickets",
+        "mark_as_in_production",
+        "mark_as_completed",
+        "mark_as_delivered",
+        "mark_orders_fully_paid",
+    )
 
-    @admin.display(description="Delivery")
-    def delivery_status(self, obj):
+    def get_urls(self):
+        info = self.model._meta.app_label, self.model._meta.model_name
+        return [
+            path(
+                "<path:object_id>/mark-fully-paid/",
+                self.admin_site.admin_view(self.mark_fully_paid_view),
+                name="%s_%s_mark_fully_paid" % info,
+            ),
+        ] + super().get_urls()
+
+    def mark_fully_paid_view(self, request, object_id):
+        order = get_object_or_404(self.model, pk=object_id)
+        if not self.has_change_permission(request, order):
+            raise PermissionDenied
+        if request.method != "POST":
+            self.message_user(
+                request,
+                "Use the “Mark fully paid” button to confirm.",
+                messages.WARNING,
+            )
+            return HttpResponseRedirect(
+                reverse("admin:shop_order_change", args=[object_id])
+            )
         try:
-            return obj.delivery.get_status_display()
-        except Exception:
-            return "—"
+            order.mark_fully_paid()
+            order.save()
+            self.message_user(
+                request,
+                "Order marked fully paid. Deposit now equals total — balance is €0.",
+                messages.SUCCESS,
+            )
+        except ValidationError as exc:
+            self.message_user(request, " ".join(exc.messages), messages.ERROR)
+        return HttpResponseRedirect(reverse("admin:shop_order_change", args=[order.pk]))
+
+    @admin.action(description="Mark as fully paid (deposit = total)")
+    def mark_orders_fully_paid(self, request, queryset):
+        ok = 0
+        skipped = []
+        for order in queryset:
+            try:
+                order.mark_fully_paid()
+                order.save()
+                ok += 1
+            except ValidationError as exc:
+                skipped.append(f"{order.reference}: {' '.join(exc.messages)}")
+        if ok:
+            self.message_user(request, f"Marked {ok} order(s) as fully paid.", messages.SUCCESS)
+        if skipped:
+            self.message_user(
+                request,
+                "Skipped: " + " | ".join(skipped[:8]),
+                messages.WARNING,
+            )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        # Catalogue used by static/admin/shop/order_pricing.js to live-recalculate
+        # the order total whenever the user picks a garment type, fabric, or qty.
+        extra_context["pricing_catalogue_json"] = json.dumps(
+            {
+                "garment_types": {
+                    str(pk): float(price)
+                    for pk, price in GarmentType.objects.values_list("id", "base_price")
+                },
+                "materials": {
+                    str(pk): float(addon)
+                    for pk, addon in Material.objects.values_list("id", "price_addon")
+                },
+            }
+        )
+        if object_id:
+            try:
+                order = (
+                    Order.objects.prefetch_related(
+                        "garments__tickets__assigned_worker",
+                        "garments__garment_type",
+                    ).get(pk=object_id)
+                )
+                extra_context["order_tickets_workflow"] = list(
+                    WorkTicket.objects.filter(garment__order=order)
+                    .select_related("garment__garment_type", "assigned_worker")
+                    .order_by("deadline", "ticket_number")
+                )
+            except Order.DoesNotExist:
+                pass
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
+    def save_related(self, request, form, formsets, change):
+        """
+        Garment inlines commit after `save_model`, so totals must be refreshed here.
+        Covers add/change/remove rows and keeps payment_status aligned with garments.
+        """
+        super().save_related(request, form, formsets, change)
+        order = form.instance
+        if not isinstance(order, Order) or not order.pk:
+            return
+        fresh = Order.objects.get(pk=order.pk)
+        if fresh.use_automatic_pricing:
+            fresh.apply_automatic_pricing()
+        fresh.apply_payment_status()
+        fresh.save(update_fields=["total_price", "payment_status"])
+
+    @admin.display(description="Order")
+    def order_summary_widget(self, obj):
+        try:
+            dlabel = obj.delivery.get_status_display()
+        except Delivery.DoesNotExist:
+            dlabel = "—"
+        progress = order_board_progress_label(obj)
+        url = reverse("admin:shop_order_change", args=[obj.pk])
+        price = obj.total_price if obj.total_price is not None else "—"
+        return format_html(
+            '<div class="ss-admin-order-card ss-priority-{}">'
+            '<a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__customer">{}</div>'
+            '<div class="ss-admin-order-card__meta">Due {} · {} · {} priority</div>'
+            '<div class="ss-admin-order-card__meta">Pipeline: {} · Delivery: {}</div>'
+            '<div class="ss-admin-order-card__meta">Payment: {} · Total: €{}</div>'
+            '<div class="ss-admin-order-card__hint">Open order →</div>'
+            "</a></div>",
+            obj.priority,
+            url,
+            obj.reference,
+            obj.customer.full_name if obj.customer_id else "—",
+            obj.due_date,
+            obj.get_status_display(),
+            obj.get_priority_display(),
+            progress,
+            dlabel,
+            obj.get_payment_status_display(),
+            price,
+        )
+
+    @admin.display(description="Calculated total (€)")
+    def computed_total_display(self, obj):
+        if not obj or not obj.pk:
+            return "Save order first."
+        total = obj.computed_total_from_garments()
+        suffix = ""
+        if total <= 0 and obj.garments.exists():
+            suffix = (
+                " — if this stays €0, edit Garment types and set a positive base price for each "
+                "(e.g. Shirt, Hat)."
+            )
+        return f"€{total:,.2f}{suffix}"
 
     @admin.display(description="Balance due")
     def balance_due_display(self, obj):
         if not obj or obj.balance_due is None:
             return "—"
-        return f"£{obj.balance_due:,.2f}"
+        return f"€{obj.balance_due:,.2f}"
 
     @admin.display(description="Measurements")
     def measurement_overview(self, obj):
@@ -265,58 +607,13 @@ class OrderAdmin(StaffEditableModelAdmin):
             entries.append(f"{garment.garment_type}: {measurements}")
         return format_html_join("<br>", "{}", ((e,) for e in entries)) if entries else "No garments yet."
 
-    @admin.display(description="Production tickets")
-    def ticket_overview(self, obj):
-        if not obj or not obj.pk:
-            return "Save order first."
-        tickets = (
-            WorkTicket.objects.filter(garment__order=obj)
-            .select_related("garment__garment_type", "assigned_worker")
-            .order_by("deadline")
-        )
-        if not tickets.exists():
-            return "No tickets yet — save garments first."
-
-        rows = []
-        for t in tickets:
-            overdue_cell = mark_safe('<span style="color:#ef4444;font-weight:600;">Yes</span>') if t.is_overdue else "—"
-            rows.append(format_html(
-                "<tr>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "<td style='padding:4px 10px;'>{}</td>"
-                "</tr>",
-                t.ticket_number,
-                t.garment.garment_type,
-                t.assigned_worker or "—",
-                t.get_current_stage_display(),
-                t.get_priority_display(),
-                t.deadline,
-                overdue_cell,
-            ))
-
-        rows_html = mark_safe("".join(str(r) for r in rows))
-        return mark_safe(
-            "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
-            "<thead><tr style='border-bottom:1px solid rgba(255,255,255,0.12);'>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Ticket</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Garment</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Worker</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Stage</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Priority</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Deadline</th>"
-            "<th style='text-align:left;padding:4px 10px;opacity:.7;'>Overdue</th>"
-            f"</tr></thead><tbody>{rows_html}</tbody></table>"
-        )
-
     # --- inline save (measurements) ---
 
     def save_formset(self, request, form, formset, change):
         super().save_formset(request, form, formset, change)
+        order = form.instance if isinstance(form.instance, Order) else None
+        customer = order.customer if order and order.customer_id else None
+
         for inline_form in formset.forms:
             if not hasattr(inline_form, "cleaned_data"):
                 continue
@@ -338,12 +635,21 @@ class OrderAdmin(StaffEditableModelAdmin):
                         measurement.unit = unit or "cm"
                         measurement.full_clean()
                         measurement.save()
-                        continue
-                Measurement.objects.update_or_create(
-                    garment=garment,
-                    name=name,
-                    defaults={"value": value, "unit": unit or "cm"},
-                )
+                else:
+                    Measurement.objects.update_or_create(
+                        garment=garment,
+                        name=name,
+                        defaults={"value": value, "unit": unit or "cm"},
+                    )
+
+                # Mirror new measurements onto the customer profile too — only fill
+                # gaps so we never overwrite a manually-set profile value.
+                if customer is not None:
+                    CustomerMeasurement.objects.get_or_create(
+                        customer=customer,
+                        name=name,
+                        defaults={"value": value, "unit": unit or "cm"},
+                    )
 
     # --- bulk actions ---
 
@@ -440,12 +746,9 @@ class StatusHistoryInline(TabularInline):
 
 @admin.register(WorkTicket)
 class WorkTicketAdmin(StaffEditableModelAdmin):
-    list_display = (
-        "ticket_number", "garment", "assigned_worker",
-        "current_stage", "priority", "deadline", "is_overdue",
-    )
-    list_display_links = ("ticket_number",)
-    list_editable = ("current_stage", "assigned_worker")
+    change_form_outer_after_template = "admin/shop/workticket/next_stage_panel.html"
+    list_display = ("ticket_summary_widget",)
+    list_display_links = None
     list_select_related = ("garment__order", "garment__garment_type", "assigned_worker")
     list_filter = ("current_stage", "priority", "deadline", "assigned_worker")
     search_fields = (
@@ -455,6 +758,15 @@ class WorkTicketAdmin(StaffEditableModelAdmin):
         "garment__garment_type__name",
     )
     inlines = (StatusHistoryInline,)
+    _wt_changelist_request = None
+
+    def changelist_view(self, request, extra_context=None):
+        self._wt_changelist_request = request
+        try:
+            return super().changelist_view(request, extra_context)
+        finally:
+            self._wt_changelist_request = None
+
     actions = (
         "advance_to_design_confirmed",
         "advance_to_cutting",
@@ -464,6 +776,55 @@ class WorkTicketAdmin(StaffEditableModelAdmin):
         "advance_to_ready_for_delivery",
         "advance_to_delivered",
     )
+
+    @admin.display(description="Ticket")
+    def ticket_summary_widget(self, obj):
+        order_ref = obj.garment.order.reference
+        change_url = reverse("admin:shop_workticket_change", args=[obj.pk])
+        overdue = " · overdue" if obj.is_overdue else ""
+        req = getattr(self, "_wt_changelist_request", None)
+        csrf = get_token(req) if req is not None else ""
+        advance_url = reverse("shop:ticket_next_stage", args=[obj.pk])
+        redir = reverse("admin:shop_workticket_changelist")
+
+        advance_block = ""
+        if obj.current_stage != WorkTicket.Stage.DELIVERED and req is not None:
+            advance_block = format_html(
+                '<form method="post" action="{}" class="ss-ticket-quick-next mb-3 flex flex-wrap items-center gap-2">'
+                '<input type="hidden" name="csrfmiddlewaretoken" value="{}"/>'
+                '<input type="hidden" name="next" value="{}" />'
+                '<button type="submit" class="sss-ticket-quick-next__btn">'
+                "Next stage →"
+                "</button>"
+                "</form>",
+                advance_url,
+                csrf,
+                redir,
+            )
+
+        stage_label = obj.get_current_stage_display()
+        return format_html(
+            '<div class="sss-admin-ticket-card ss-ticket-card-wide">{}{}'
+            '<a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__customer">{} · Order {}</div>'
+            '<div class="ss-admin-order-card__meta">Worker: {} · Due: {}{} · {}</div>'
+            '<div class="ss-admin-order-card__hint">Open full ticket →</div></a>'
+            "</div>",
+            advance_block,
+            format_html(
+                '<div class="sss-ticket-stage-bar"><span class="sss-ticket-stage-pill">{}</span></div>',
+                stage_label,
+            ),
+            change_url,
+            obj.ticket_number,
+            obj.garment.garment_type,
+            order_ref,
+            obj.assigned_worker or "— auto-assign",
+            obj.deadline,
+            overdue,
+            obj.get_priority_display(),
+        )
 
     def save_model(self, request, obj, form, change):
         previous_stage = None
@@ -539,17 +900,41 @@ class StatusHistoryAdmin(StaffEditableModelAdmin):
 
 @admin.register(Delivery)
 class DeliveryAdmin(StaffEditableModelAdmin):
-    list_display = (
-        "order", "customer_name", "method", "status",
-        "scheduled_date", "delivered_date",
-    )
+    list_display = ("delivery_widget",)
+    list_display_links = None
     list_filter = ("status", "method", "scheduled_date")
     search_fields = ("order__reference", "order__customer__full_name")
+    list_select_related = ("order", "order__customer")
     actions = ("mark_as_delivered",)
 
-    @admin.display(description="Customer")
-    def customer_name(self, obj):
-        return obj.order.customer.full_name
+    @admin.display(description="Delivery")
+    def delivery_widget(self, obj):
+        url = reverse("admin:shop_delivery_change", args=[obj.pk])
+        # Status colour: ready/out for delivery → priority-medium, delivered → low (calm)
+        if obj.status == Delivery.Status.DELIVERED:
+            klass = "ss-priority-low"
+        elif obj.status in (Delivery.Status.READY_FOR_PICKUP, Delivery.Status.OUT_FOR_DELIVERY):
+            klass = "ss-priority-medium"
+        else:
+            klass = ""
+        return format_html(
+            '<div class="ss-admin-order-card {}"><a class="ss-admin-order-card__link" href="{}">'
+            '<div class="ss-admin-order-card__ref">{}</div>'
+            '<div class="ss-admin-order-card__customer">{}</div>'
+            '<div class="ss-admin-order-card__meta">Method: {}</div>'
+            '<div class="ss-admin-order-card__meta">Status: {}</div>'
+            '<div class="ss-admin-order-card__meta">Scheduled: {} · Delivered: {}</div>'
+            '<div class="ss-admin-order-card__hint">Open delivery →</div>'
+            "</a></div>",
+            klass,
+            url,
+            obj.order.reference,
+            obj.order.customer.full_name,
+            obj.get_method_display(),
+            obj.get_status_display(),
+            obj.scheduled_date or "—",
+            obj.delivered_date or "—",
+        )
 
     @admin.action(description="Mark as Delivered (closes tickets + order)")
     def mark_as_delivered(self, request, queryset):
@@ -578,3 +963,36 @@ class MeasurementAdmin(StaffEditableModelAdmin):
     list_display = ("garment", "name", "value", "unit", "notes")
     list_filter = ("unit", "name")
     search_fields = ("garment__order__reference", "garment__garment_type__name", "name")
+
+
+# ---------------------------------------------------------------------------
+# Workflow audit (order/delivery)
+# ---------------------------------------------------------------------------
+
+
+@admin.register(WorkflowEvent)
+class WorkflowEventAdmin(StaffEditableModelAdmin):
+    """
+    Read-only timeline of order/delivery changes (automatic signals).
+    Use this to see status, payment, and priority updates at a glance.
+    """
+
+    list_display = ("created_at", "archived_order_ref", "order", "delivery", "ticket", "summary")
+    list_filter = ("created_at",)
+    search_fields = (
+        "summary",
+        "archived_order_ref",
+        "order__reference",
+        "order__customer__full_name",
+    )
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at", "actor", "order", "delivery", "ticket", "summary", "archived_order_ref")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

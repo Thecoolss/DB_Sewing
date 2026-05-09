@@ -23,11 +23,40 @@ class Customer(models.Model):
         return self.full_name
 
 
+class CustomerMeasurement(models.Model):
+    """Optional body / sizing profile for a customer (e.g. shirt — chest, sleeve)."""
+
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        related_name="profile_measurements",
+    )
+    name = models.CharField(max_length=80)
+    value = models.DecimalField(max_digits=8, decimal_places=2)
+    unit = models.CharField(max_length=10, default="cm")
+    notes = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["customer_id", "name"]
+        unique_together = ("customer", "name")
+
+    def __str__(self):
+        return f"{self.customer.full_name}: {self.name}"
+
+
 class Employee(models.Model):
     full_name = models.CharField(max_length=120)
     role = models.CharField(max_length=80, blank=True)
     active = models.BooleanField(default=True)
     phone = models.CharField(max_length=30, blank=True)
+    specialty_stage = models.CharField(
+        max_length=30,
+        blank=True,
+        help_text=(
+            "Each active worker handles one pipeline stage so tickets auto-assign correctly "
+            '(e.g. cutting, sewing — use “design confirmed”, “delivered”, etc. sparingly).'
+        ),
+    )
 
     class Meta:
         ordering = ["full_name"]
@@ -35,11 +64,50 @@ class Employee(models.Model):
     def __str__(self):
         return self.full_name
 
+    def clean(self):
+        stage_codes = {s for s, _ in WorkTicket.Stage.choices}
+        if self.specialty_stage and self.specialty_stage not in stage_codes:
+            raise ValidationError(
+                {"specialty_stage": f"Must be one of: {', '.join(sorted(stage_codes))}."}
+            )
+        if self.active and not (self.specialty_stage or "").strip():
+            raise ValidationError(
+                {
+                    "specialty_stage": (
+                        "Active employees must cover one pipeline stage "
+                        '(pick e.g. “Cutting” or “Sewing”; turn off Active if archiving only).'
+                    )
+                },
+            )
+
+    def save(self, *args, **kwargs):
+        """Run `clean()` on every persist so programmatic creates match admin rules."""
+        self.clean()
+        super().save(*args, **kwargs)
+
 
 class Material(models.Model):
+    class Kind(models.TextChoices):
+        FABRIC = "fabric", "Fabric / textile"
+        TRIM = "trim", "Trim / lining"
+        NOTIONS = "notions", "Buttons, zippers, etc."
+        OTHER = "other", "Other"
+
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     unit = models.CharField(max_length=30, default="meters")
+    kind = models.CharField(
+        max_length=20,
+        choices=Kind.choices,
+        default=Kind.FABRIC,
+        help_text="Use Fabric for primary material on garments; buttons/notions belong here, not as “primary fabric”.",
+    )
+    price_addon = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Extra charge when this material is chosen (per garment unit).",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -53,6 +121,12 @@ class GarmentType(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=255, blank=True)
     active = models.BooleanField(default=True)
+    base_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Fixed base price for this garment type (before fabric surcharge).",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -68,6 +142,11 @@ class Order(models.Model):
         COMPLETED = "completed", "Completed"
         DELIVERED = "delivered", "Delivered"
         CANCELLED = "cancelled", "Cancelled"
+
+    class Priority(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
 
     class PaymentStatus(models.TextChoices):
         UNPAID = "unpaid", "Unpaid"
@@ -89,12 +168,21 @@ class Order(models.Model):
     )
     order_date = models.DateField(default=timezone.localdate)
     due_date = models.DateField()
+    priority = models.CharField(
+        max_length=10,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+    )
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.DRAFT,
+        default=Status.IN_PRODUCTION,
     )
     completed_at = models.DateTimeField(null=True, blank=True)
+    use_automatic_pricing = models.BooleanField(
+        default=True,
+        help_text="When on, order total is recalculated from garment types and fabric surcharges.",
+    )
     total_price = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Agreed total price for this order.",
@@ -121,6 +209,45 @@ class Order(models.Model):
         if self.total_price is None:
             return None
         return self.total_price - (self.deposit_paid or Decimal("0.00"))
+
+    def computed_total_from_garments(self):
+        if not self.pk:
+            return Decimal("0.00")
+        total = Decimal("0.00")
+        for g in self.garments.all():
+            total += g.line_total
+        return total
+
+    def apply_automatic_pricing(self):
+        if self.use_automatic_pricing:
+            self.total_price = self.computed_total_from_garments()
+
+    def apply_payment_status(self):
+        total = self.total_price
+        dep = self.deposit_paid or Decimal("0.00")
+        if total is None or total <= 0:
+            self.payment_status = self.PaymentStatus.UNPAID
+        elif dep <= 0:
+            self.payment_status = self.PaymentStatus.UNPAID
+        elif dep >= total:
+            self.payment_status = self.PaymentStatus.FULLY_PAID
+        else:
+            self.payment_status = self.PaymentStatus.DEPOSIT_PAID
+
+    def mark_fully_paid(self):
+        """
+        Record full payment: sets deposit to match total so balance due is €0
+        and payment_status becomes Fully paid. Caller should .save().
+        """
+        from django.core.exceptions import ValidationError
+
+        total = self.total_price
+        if total is None or total <= 0:
+            raise ValidationError(
+                "Set a positive order total before marking as fully paid.",
+            )
+        self.deposit_paid = total
+        self.apply_payment_status()
 
     def clean(self):
         if self.due_date < self.order_date:
@@ -170,6 +297,8 @@ class Order(models.Model):
         is_new = self.pk is None
         if not self.reference:
             self.reference = f"ORD-{uuid.uuid4().hex[:8].upper()}"
+        self.apply_automatic_pricing()
+        self.apply_payment_status()
         if self.status == self.Status.COMPLETED and not self.completed_at:
             self.completed_at = timezone.now()
         super().save(*args, **kwargs)
@@ -206,19 +335,55 @@ class Garment(models.Model):
     def __str__(self):
         return f"{self.garment_type} ({self.order.reference})"
 
+    @property
+    def line_total(self):
+        base = self.garment_type.base_price or Decimal("0.00")
+        addon = (
+            self.primary_material.price_addon
+            if self.primary_material_id
+            else Decimal("0.00")
+        )
+        return (base + addon) * self.quantity
+
+    def clean(self):
+        if self.primary_material_id and self.primary_material.kind == Material.Kind.NOTIONS:
+            raise ValidationError(
+                {
+                    "primary_material": (
+                        "Use fabrics or textiles as primary material; buttons and small notions "
+                        "belong in garment materials, not here."
+                    )
+                }
+            )
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        if self.order.use_automatic_pricing:
+            self.unit_price = self.line_total / self.quantity if self.quantity else self.line_total
         super().save(*args, **kwargs)
         if is_new:
             self.create_default_ticket()
+        if self.order_id and self.order.use_automatic_pricing:
+            o = self.order
+            o.apply_automatic_pricing()
+            o.apply_payment_status()
+            Order.objects.filter(pk=o.pk).update(
+                total_price=o.total_price,
+                payment_status=o.payment_status,
+            )
 
     def create_default_ticket(self):
+        from .workflow import order_priority_to_ticket_priority, pick_employee_for_stage
+
+        tp = order_priority_to_ticket_priority(self.order)
+        worker = pick_employee_for_stage(WorkTicket.Stage.ORDER_RECEIVED) or self.order.assigned_employee
         ticket, _ = WorkTicket.objects.get_or_create(
             garment=self,
             defaults={
                 "deadline": self.order.due_date,
                 "current_stage": WorkTicket.Stage.ORDER_RECEIVED,
-                "assigned_worker": self.order.assigned_employee,
+                "assigned_worker": worker,
+                "priority": tp,
             },
         )
         return ticket
@@ -406,7 +571,11 @@ class WorkTicket(models.Model):
                 completed_at=timezone.now(),
             )
         elif all_terminal and not all_delivered and delivery.status == Delivery.Status.PENDING:
-            Delivery.objects.filter(pk=delivery.pk).update(status=Delivery.Status.READY)
+            if delivery.method == Delivery.Method.PICKUP:
+                new_ds = Delivery.Status.READY_FOR_PICKUP
+            else:
+                new_ds = Delivery.Status.OUT_FOR_DELIVERY
+            Delivery.objects.filter(pk=delivery.pk).update(status=new_ds)
             if order.status not in {Order.Status.COMPLETED, Order.Status.DELIVERED}:
                 Order.objects.filter(pk=order.pk).update(
                     status=Order.Status.COMPLETED,
@@ -446,7 +615,8 @@ class Delivery(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
-        READY = "ready", "Ready"
+        READY_FOR_PICKUP = "ready_pickup", "Ready for pickup"
+        OUT_FOR_DELIVERY = "out_delivery", "Out for delivery"
         DELIVERED = "delivered", "Delivered"
 
     order = models.OneToOneField(
@@ -460,7 +630,7 @@ class Delivery(models.Model):
         default=Method.PICKUP,
     )
     status = models.CharField(
-        max_length=10,
+        max_length=20,
         choices=Status.choices,
         default=Status.PENDING,
     )
@@ -502,7 +672,10 @@ class Delivery(models.Model):
         if self.status == self.Status.PENDING:
             if self.order.status == Order.Status.COMPLETED:
                 desired_status = Order.Status.IN_PRODUCTION
-        elif self.status == self.Status.READY:
+        elif self.status in (
+            self.Status.READY_FOR_PICKUP,
+            self.Status.OUT_FOR_DELIVERY,
+        ):
             if self.order.status not in {Order.Status.COMPLETED, Order.Status.DELIVERED}:
                 desired_status = Order.Status.COMPLETED
         elif self.status == self.Status.DELIVERED:
@@ -519,3 +692,62 @@ class Delivery(models.Model):
             elif desired_status == Order.Status.IN_PRODUCTION:
                 self.order.completed_at = None
             self.order.save(update_fields=["status", "completed_at"])
+
+
+class WorkflowEvent(models.Model):
+    """
+    Append-only audit trail for important shop activity at order/delivery level.
+
+    Each row is a short human-readable summary (who did what, when). Ticket
+    stage history stays in ``StatusHistory``; this table complements that by
+    recording creates/changes to orders and deliveries (e.g. status, payment,
+    priority) so you can answer “what happened to this order?” without
+    digging through raw rows. Django signals write most events automatically.
+
+    When an order is deleted, related workflow rows for that job are cleared and one
+    tombstone row remains with ``archived_order_ref`` marking the deletion.
+    """
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="workflow_events",
+    )
+    ticket = models.ForeignKey(
+        "WorkTicket",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="workflow_events",
+    )
+    delivery = models.ForeignKey(
+        Delivery,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="workflow_events",
+    )
+    summary = models.CharField(max_length=255)
+    archived_order_ref = models.CharField(
+        max_length=36,
+        blank=True,
+        db_index=True,
+        help_text="When an order is removed entirely, its reference is logged here once (tombstone row).",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Workflow event"
+        verbose_name_plural = "Workflow events"
+
+    def __str__(self):
+        return self.summary

@@ -3,49 +3,57 @@
 {% block title %}Customers | Sewing Shop Ops{% endblock title %}
 {% block page_title %}{{ page_title }}{% endblock page_title %}
 
+{% block tools %}
+    <div class="tools tools-large">
+        <a class="btn primary" href="{% url 'admin:shop_customer_add' %}">Add new customer</a>
+        <a class="btn" href="{% url 'admin:shop_customer_changelist' %}">Open in admin</a>
+    </div>
+{% endblock tools %}
+
 {% block content %}
-<form method="get" aria-label="Customer search" class="search">
-    <label class="form-label" for="q">Customer name contains</label>
-    <div class="form-row">
-        <input class="input" id="q" name="q" value="{{ query }}" placeholder="e.g. Nassar" autocomplete="off">
-        <button class="btn primary" type="submit">Search</button>
+<form method="get" aria-label="Customer search" class="customer-search">
+    <label class="customer-search__label" for="q">Type a customer name to search</label>
+    <div class="customer-search__row">
+        <input
+            class="customer-search__input"
+            id="q"
+            name="q"
+            value="{{ query }}"
+            placeholder="e.g. Nassar"
+            autocomplete="off"
+        >
+        <button class="btn primary btn-large" type="submit">Search</button>
     </div>
 </form>
 
-<div class="section-header">
-    <h3 class="section-title">Results</h3>
-    <span class="mini">{{ customers|length }} match{{ customers|length|pluralize:"es" }}</span>
-</div>
+<p class="lead-text">{{ customers|length }} match{{ customers|length|pluralize:"es" }}{% if query %} for "{{ query }}"{% endif %}.</p>
 
-<div class="table-wrap">
-    <table role="grid" aria-label="Customer results">
-        <thead>
-            <tr>
-                <th>Customer</th>
-                <th>Contact</th>
-                <th style="width:150px;"></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for customer in customers %}
-            <tr>
-                <td><strong>{{ customer.full_name }}</strong></td>
-                <td>
-                    <div><span class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Phone</span>&nbsp; {{ customer.phone|default:"—" }}</div>
-                    <div style="margin-top:6px;"><span class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Email</span>&nbsp; {{ customer.email|default:"—" }}</div>
-                </td>
-                <td>
-                    <a class="btn primary" style="justify-content:center;" href="{% url 'shop:customer_history' customer.id %}">Open timeline</a>
-                </td>
-            </tr>
-        {% empty %}
-            <tr>
-                <td colspan="3" class="muted" style="padding:18px 16px;">
-                    {% if query %}No customers found matching "{{ query }}".{% else %}Enter a name above to search.{% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<div class="widget-grid">
+{% for customer in customers %}
+    <article class="customer-widget">
+        <div class="widget-customer">{{ customer.full_name }}</div>
+        <div class="widget-meta">Phone: {{ customer.phone|default:"—" }}</div>
+        <div class="widget-meta">Email: {{ customer.email|default:"—" }}</div>
+        {% if customer.address %}
+            <div class="widget-meta">Address: {{ customer.address|truncatechars:80 }}</div>
+        {% endif %}
+        <details class="widget-more">
+            <summary class="widget-summary-btn">More details</summary>
+            <div class="widget-details">
+                {% if customer.preferences %}<p>Preferences: {{ customer.preferences|truncatechars:200 }}</p>{% endif %}
+                {% if customer.notes %}<p>Notes: {{ customer.notes|truncatechars:200 }}</p>{% endif %}
+                <p>Created: {{ customer.created_at|date:"Y-m-d" }}</p>
+            </div>
+        </details>
+        <div class="widget-actions">
+            <a class="btn primary btn-block" href="{% url 'shop:customer_history' customer.id %}">Open timeline</a>
+            <a class="btn btn-block" href="{% url 'admin:shop_customer_change' customer.id %}">Edit in admin</a>
+        </div>
+    </article>
+{% empty %}
+    <p class="lead-text">
+        {% if query %}No customers found matching "{{ query }}".{% else %}Type a name above to search.{% endif %}
+    </p>
+{% endfor %}
 </div>
 {% endblock content %}

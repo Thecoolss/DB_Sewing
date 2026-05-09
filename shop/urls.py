@@ -6,7 +6,11 @@ app_name = "shop"
 
 urlpatterns = [
     path("", views.dashboard_home, name="dashboard"),
-    path("orders/<str:filter_name>/", views.order_monitor, name="order_monitor"),
+    path("orders/board/<str:tab>/", views.order_board, name="order_board"),
+    path("orders/<int:pk>/", views.order_detail_shop, name="order_detail"),
+    path("tickets/<int:pk>/next-stage/", views.ticket_next_stage, name="ticket_next_stage"),
+    path("reports/", views.reports_dashboard, name="reports"),
+    path("monitor/<str:filter_name>/", views.order_monitor, name="order_monitor"),
     path("customers/", views.customer_search, name="customer_search"),
     path("customers/<int:customer_id>/history/", views.customer_history, name="customer_history"),
 ]

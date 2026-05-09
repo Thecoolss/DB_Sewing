@@ -1,0 +1,21 @@
+{% load i18n %}
+{% if original and original.pk %}
+{% if original.current_stage != "delivered" %}
+<div class="border border-base-200 dark:border-base-700 rounded-default p-4 mb-6 max-w-xl">
+    <p class="text-sm opacity-80 mb-3">
+        {% trans "Move this ticket one step forward. A suitable employee is picked automatically for the new stage." %}
+    </p>
+    <form method="post" action="{% url 'shop:ticket_next_stage' original.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button
+            type="submit"
+            class="border border-transparent font-medium rounded-default px-5 py-2.5 text-sm text-white shadow-sm"
+            style="background: linear-gradient(135deg,#10b981,#059669);"
+        >
+            {% trans "Next stage" %}
+        </button>
+    </form>
+</div>
+{% endif %}
+{% endif %}

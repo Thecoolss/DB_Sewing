@@ -1,3 +1,62 @@
+/* Card-style changelist cells (Orders / Work tickets) */
+.ss-admin-order-card,
+.ss-admin-ticket-card,
+.sss-admin-ticket-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    border-radius: 14px !important;
+    padding: 14px 16px !important;
+    max-width: 560px !important;
+}
+.ss-admin-order-card.ss-priority-high,
+.ss-admin-ticket-card.ss-priority-high,
+.sss-admin-ticket-card.ss-priority-high {
+    border-left: 4px solid #f87171 !important;
+}
+.ss-admin-order-card.ss-priority-medium {
+    border-left: 4px solid #fbbf24 !important;
+}
+.ss-admin-order-card.ss-priority-low {
+    border-left: 4px solid #94a3b8 !important;
+}
+.ss-admin-order-card__link {
+    display: block !important;
+    text-decoration: none !important;
+    color: #e2e8f0 !important;
+}
+.ss-admin-order-card__ref {
+    font-family: ui-monospace, monospace !important;
+    font-size: 17px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+}
+.ss-admin-order-card__customer {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    margin-top: 8px !important;
+}
+.ss-admin-order-card__meta {
+    font-size: 13px !important;
+    opacity: 0.75 !important;
+    margin-top: 6px !important;
+    line-height: 1.4 !important;
+}
+.ss-admin-order-card__hint {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    color: #6ee7b7 !important;
+    margin-top: 12px !important;
+}
+
+#result_list tbody td:has(.ss-admin-order-card),
+#result_list tbody td:has(.ss-admin-ticket-card),
+#result_list tbody td:has(.sss-admin-ticket-card) {
+    padding: 12px 14px !important;
+    vertical-align: top !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    FORCE DARK — no dependency on .dark class or theme mode
    Every color is set directly. Nothing is white.
@@ -653,6 +712,78 @@ fieldset.module h2,
     border-color: rgba(255,255,255,0.05) !important;
     color: var(--ss-text) !important;
     background: transparent !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ORDER FORM — Pricing fieldset always sits below the Garments / Delivery
+   inlines (better flow: pick garments first → see total at the bottom).
+   The fieldsets and inline groups are siblings inside `flex flex-col`,
+   so a high `order` value pushes Pricing to the very end.
+═══════════════════════════════════════════════════════════════════ */
+fieldset.module.ss-pricing-fieldset {
+    order: 999 !important;
+    border: 1px solid rgba(16,185,129,0.30) !important;
+    box-shadow: 0 8px 32px rgba(16,185,129,0.08) !important;
+}
+fieldset.module.ss-pricing-fieldset > h2 {
+    color: var(--ss-green-text) !important;
+}
+/* Highlight the readonly "Calculated total (€)" line so users notice it. */
+.field-computed_total_display .readonly {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    color: var(--ss-green-text) !important;
+    letter-spacing: -0.01em !important;
+}
+.field-computed_total_display .readonly.ss-live-updated {
+    transition: color 120ms ease;
+}
+
+/* Live total preview pill at the top of the Order change form. */
+.ss-live-total-pill {
+    background: var(--ss-green-dim) !important;
+    border-color: rgba(16,185,129,0.35) !important;
+    color: var(--ss-green-text) !important;
+}
+.ss-live-total-pill[data-empty="true"] {
+    background: rgba(255,255,255,0.04) !important;
+    border-color: var(--ss-border) !important;
+    color: var(--ss-muted) !important;
+}
+.ss-live-total-pill [data-ss-live-total] {
+    font-variant-numeric: tabular-nums;
+}
+
+
+
+/* Work ticket changelist — prominent stage + Next stage on the card */
+.sss-ticket-card-wide {
+    max-width: 640px !important;
+}
+.sss-ticket-stage-bar {
+    margin: 0 0 12px 0 !important;
+}
+.sss-ticket-stage-pill {
+    display: inline-block !important;
+    padding: 8px 18px !important;
+    border-radius: 9999px !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.02em !important;
+    background: rgba(16,185,129,0.22) !important;
+    border: 1px solid rgba(16,185,129,0.45) !important;
+    color: var(--ss-green-text) !important;
+}
+.sss-ticket-quick-next__btn {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    color: #fff !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    padding: 8px 18px !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 12px rgba(16,185,129,0.35) !important;
 }
 
 /* ── Select2 / autocomplete widgets ───────────────────────────── */

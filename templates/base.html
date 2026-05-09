@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Sewing Shop Ops{% endblock title %}</title>
+    <title>{% block title %}Sewing Shop{% endblock title %}</title>
     <link rel="stylesheet" href="{% static 'shop/ops.css' %}">
 </head>
 <body>
@@ -14,39 +14,33 @@
         <div class="brand">
             <div class="logo" aria-hidden="true">SS</div>
             <div class="brand-text">
-                <h1>SS Ops</h1>
-                <p class="tagline">Shop dashboard</p>
+                <h1>Sewing shop</h1>
+                <p class="tagline">Easy view · large text</p>
             </div>
         </div>
 
-        <nav class="nav" aria-label="Primary navigation">
-            <span class="nav-section">Overview</span>
+        <nav class="nav nav-large" aria-label="Primary navigation">
+            <span class="nav-section">Main</span>
             <a class="nav-link{% if nav_key == 'dashboard' %} active{% endif %}" href="{% url 'shop:dashboard' %}">
-                <span class="nav-dot"></span> Dashboard
+                <span class="nav-dot"></span> Home
+            </a>
+            <a class="nav-link{% if nav_key == 'orders_board' %} active{% endif %}" href="{% url 'shop:order_board' 'active' %}">
+                <span class="nav-dot"></span> Order board
+            </a>
+            <a class="nav-link{% if nav_key == 'reports' %} active{% endif %}" href="{% url 'shop:reports' %}">
+                <span class="nav-dot"></span> Reports
+            </a>
+            <a class="nav-link" href="{% url 'admin:index' %}">
+                <span class="nav-dot"></span> Admin (full data)
             </a>
 
-            <span class="nav-section">Orders</span>
-            <a class="nav-link{% if nav_key == 'pending' %} active{% endif %}" href="{% url 'shop:order_monitor' 'pending' %}">
-                <span class="nav-dot"></span> Pending
-            </a>
-            <a class="nav-link{% if nav_key == 'production' %} active{% endif %}" href="{% url 'shop:order_monitor' 'production' %}">
-                <span class="nav-dot"></span> In production
-            </a>
-            <a class="nav-link{% if nav_key == 'overdue' %} active{% endif %}" href="{% url 'shop:order_monitor' 'overdue' %}">
-                <span class="nav-dot"></span> Overdue
-            </a>
-            <a class="nav-link{% if nav_key == 'completed' %} active{% endif %}" href="{% url 'shop:order_monitor' 'completed' %}">
-                <span class="nav-dot"></span> Completed
-            </a>
-            <a class="nav-link{% if nav_key == 'delivered' %} active{% endif %}" href="{% url 'shop:order_monitor' 'delivered' %}">
-                <span class="nav-dot"></span> Delivered
-            </a>
+            <span class="nav-section">Lists</span>
+            <a class="nav-link{% if nav_key == 'pending' %} active{% endif %}" href="{% url 'shop:order_monitor' 'pending' %}">Draft</a>
+            <a class="nav-link{% if nav_key == 'production' %} active{% endif %}" href="{% url 'shop:order_monitor' 'production' %}">In production</a>
+            <a class="nav-link{% if nav_key == 'overdue' %} active{% endif %}" href="{% url 'shop:order_monitor' 'overdue' %}">Overdue</a>
 
             <span class="nav-section">Customers</span>
-            <a class="nav-link{% if nav_key == 'customers' %} active{% endif %}" href="{% url 'shop:customer_search' %}">
-                <span class="nav-dot"></span> Customers
-            </a>
-
+            <a class="nav-link{% if nav_key == 'customers' %} active{% endif %}" href="{% url 'shop:customer_search' %}">Customers</a>
         </nav>
 
         {% if request.user.is_authenticated %}
@@ -55,9 +49,7 @@
                 <div class="user-avatar">{{ request.user.get_username|slice:":1"|upper }}</div>
                 <div class="user-info">
                     <strong>{{ request.user.get_username }}</strong>
-                    <span class="pill-muted">
-                        {% if request.user.is_superuser %}superuser{% elif request.user.is_staff %}staff{% endif %}
-                    </span>
+                    <span class="pill-muted">{% if request.user.is_superuser %}Admin{% elif request.user.is_staff %}Staff{% endif %}</span>
                 </div>
             </div>
         </div>
@@ -68,7 +60,7 @@
         <div class="topbar">
             <div class="page-head">
                 <div>
-                    <h2 class="page-title">{% block page_title %}Overview{% endblock page_title %}</h2>
+                    <h2 class="page-title page-title-large">{% block page_title %}Overview{% endblock page_title %}</h2>
                     {% if page_subtitle %}
                         <p class="page-subtitle">{{ page_subtitle }}</p>
                     {% endif %}
@@ -78,11 +70,18 @@
         </div>
 
         <main class="main">
+            {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                <li class="msg msg-{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
             {% block content %}{% endblock content %}
         </main>
 
         {% block footer %}
-        <div class="footer">
+        <div class="footer footer-large">
             Today: {{ today }}
         </div>
         {% endblock footer %}

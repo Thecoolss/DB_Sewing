@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ order.reference }} | Sewing Shop{% endblock %}
+{% block page_title %}{{ order.reference }}{% endblock page_title %}
+
+{% block tools %}
+<div class="tools tools-large">
+    <a class="btn primary" href="{{ edit_url }}">Full edit in admin</a>
+    <a class="btn" href="{% url 'shop:order_board' 'active' %}">Back to board</a>
+</div>
+{% endblock tools %}
+
+{% block content %}
+<p class="lead-text">Customer: <strong>{{ order.customer.full_name }}</strong> · Due {{ order.due_date }} · {{ order.get_priority_display }} priority</p>
+
+<section class="ticket-actions-section">
+    <h3 class="section-heading">Production tickets</h3>
+    {% for t in tickets %}
+    <div class="ticket-row">
+        <div class="ticket-info">
+            <strong>{{ t.ticket_number }}</strong> — {{ t.garment.garment_type }}
+            <br>
+            <span class="muted">Stage: {{ t.get_current_stage_display }} · Worker: {% if t.assigned_worker %}{{ t.assigned_worker.full_name }}{% else %}—{% endif %}</span>
+        </div>
+        {% if t.current_stage != 'delivered' %}
+        <form method="post" action="{% url 'shop:ticket_next_stage' t.pk %}" class="inline-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'shop:order_detail' order.pk %}">
+            <button type="submit" class="btn primary btn-large">Next stage</button>
+        </form>
+        {% else %}
+        <span class="badge success">Done</span>
+        {% endif %}
+    </div>
+    {% empty %}
+    <p class="lead-text">No tickets yet.</p>
+    {% endfor %}
+</section>
+{% endblock content %}

@@ -1,0 +1,64 @@
+{% load i18n %}
+
+{# Catalogue consumed by static/admin/shop/order_pricing.js for live total preview. #}
+{% if pricing_catalogue_json %}
+<script id="ss-pricing-data" type="application/json">{{ pricing_catalogue_json|safe }}</script>
+{% endif %}
+
+{# Live preview pill — JS toggles `data-empty` based on the running total. #}
+<div
+    id="ss-live-total-pill"
+    class="ss-live-total-pill mb-4 max-w-3xl rounded-default border px-4 py-3"
+    data-empty="true"
+    role="status"
+    aria-live="polite"
+>
+    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span class="text-xs font-bold uppercase tracking-widest opacity-70">
+            {% trans "Live estimated total" %}
+        </span>
+        <span class="text-xl font-extrabold" data-ss-live-total>€0.00</span>
+        <span class="text-xs opacity-70">
+            {% trans "Updates as you pick garment types, fabrics, and quantities. Save to commit." %}
+        </span>
+    </div>
+</div>
+
+{% if original.pk %}
+{% if original.total_price and original.payment_status != 'fully_paid' %}
+<div
+    class="mb-6 max-w-3xl rounded-default border border-amber-500/40 bg-amber-500/10 px-4 py-4 dark:border-amber-400/35 dark:bg-amber-500/15"
+    role="region"
+    aria-label="{% trans 'Payment shortcut' %}"
+>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="text-sm text-font-default-light dark:text-font-default-dark">
+            <strong>{% trans "Balance due" %}:</strong>
+            {% if original.balance_due is not none %}
+                €{{ original.balance_due }}
+            {% else %}
+                —
+            {% endif %}
+            · {% trans "Current" %}: {{ original.get_payment_status_display }}
+        </div>
+        <form
+            method="post"
+            action="{% url 'admin:shop_order_mark_fully_paid' object_id=original.pk %}"
+            class="flex flex-wrap items-center gap-2"
+        >
+            {% csrf_token %}
+            <button
+                type="submit"
+                class="inline-flex items-center justify-center font-medium rounded-default px-4 py-2 text-sm text-white shadow-sm border border-transparent"
+                style="background: linear-gradient(135deg,#10b981,#059669);"
+            >
+                {% trans "Mark fully paid" %}
+            </button>
+            <span class="text-xs opacity-70 max-w-xs">
+                {% trans "Sets deposit to match total (€0 balance, Fully paid)." %}
+            </span>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endif %}

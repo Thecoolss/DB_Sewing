@@ -1,0 +1,35 @@
+{% comment %}Expects: cards (list), optional empty_message{% endcomment %}
+{% for c in cards %}
+    <article class="order-widget {% if c.overdue %}widget-overdue{% endif %} priority-{{ c.order.priority }}">
+        <div class="widget-header">
+            <span class="widget-ref">{{ c.order.reference }}</span>
+            {% if c.order.priority == 'high' %}
+                <span class="prio-badge prio-high">High</span>
+            {% elif c.order.priority == 'low' %}
+                <span class="prio-badge prio-low">Low</span>
+            {% else %}
+                <span class="prio-badge prio-mid">Medium</span>
+            {% endif %}
+        </div>
+        <div class="widget-customer">{{ c.order.customer.full_name }}</div>
+        <div class="widget-meta">Due: {{ c.order.due_date }} · {{ c.order.get_status_display }}</div>
+        <div class="widget-meta">Stage: {{ c.progress }}</div>
+        <div class="widget-meta">Delivery: {{ c.delivery_label }}</div>
+        <details class="widget-more">
+            <summary class="widget-summary-btn">More details</summary>
+            <div class="widget-details">
+                <p>Payment: {{ c.order.get_payment_status_display }}</p>
+                <p>Total: {% if c.order.total_price %}€{{ c.order.total_price }}{% else %}—{% endif %}</p>
+                <p>Balance: {% if c.order.balance_due is not None %}€{{ c.order.balance_due }}{% else %}—{% endif %}</p>
+            </div>
+        </details>
+        <div class="widget-actions">
+            <a class="btn primary btn-block" href="{{ c.edit_url }}">Open &amp; edit</a>
+            <a class="btn btn-block" href="{% url 'shop:order_detail' c.order.pk %}">Quick view</a>
+        </div>
+    </article>
+{% empty %}
+    {% if empty_message %}
+        <p class="lead-text">{{ empty_message }}</p>
+    {% endif %}
+{% endfor %}

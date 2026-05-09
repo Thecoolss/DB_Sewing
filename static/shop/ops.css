@@ -56,8 +56,8 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.55;
 }
 
 a {
@@ -385,6 +385,52 @@ a {
   color: var(--muted);
 }
 
+.section-header-row {
+  margin-top: 28px;
+}
+
+.section-action {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.section-action:hover {
+  text-decoration: underline;
+}
+
+/* Ticket mix (replaces plain tables on dashboard) */
+.ticket-mix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ticket-mix-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-width: 200px;
+  flex: 1 1 200px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.ticket-mix-label {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.ticket-mix-n {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Tables ───────────────────────────────────────── */
 
 .table-wrap {
@@ -592,3 +638,310 @@ tbody tr:hover td {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ── Accessibility / older users: larger UI ───────── */
+
+.nav-large .nav-link {
+  font-size: 17px;
+  padding: 11px 14px;
+}
+
+.page-title-large {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.footer-large {
+  font-size: 16px;
+  padding: 16px 28px;
+}
+
+.lead-text {
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 0 0 20px;
+  max-width: 52rem;
+}
+
+.tools-large .btn {
+  font-size: 17px;
+  padding: 12px 18px;
+}
+
+.btn-large {
+  font-size: 18px !important;
+  padding: 14px 22px !important;
+}
+
+.btn-block {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.messages {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.msg {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.msg-success {
+  background: var(--success-ghost);
+  border: 1px solid var(--success-border);
+}
+
+.msg-error {
+  background: var(--danger-ghost);
+  border: 1px solid var(--danger-border);
+}
+
+/* Order widget board */
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.order-widget {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.order-widget.widget-overdue {
+  border-color: var(--danger);
+  background: var(--danger-ghost);
+}
+
+.order-widget.priority-high {
+  border-left: 6px solid var(--danger);
+}
+
+.order-widget.priority-medium {
+  border-left: 6px solid var(--warning);
+}
+
+.order-widget.priority-low {
+  border-left: 6px solid var(--muted);
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.widget-ref {
+  font-family: ui-monospace, monospace;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.widget-customer {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.widget-meta {
+  font-size: 16px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.prio-badge {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.prio-high {
+  background: var(--danger-ghost);
+  color: var(--danger);
+}
+
+.prio-mid {
+  background: var(--warning-ghost);
+  color: var(--warning);
+}
+
+.prio-low {
+  background: #e2e8f0;
+  color: var(--muted);
+}
+
+.widget-more {
+  margin: 12px 0;
+}
+
+.widget-summary-btn {
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+.widget-details {
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.widget-actions {
+  margin-top: 14px;
+}
+
+.section-heading {
+  font-size: 22px;
+  margin: 28px 0 14px;
+}
+
+.ticket-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  background: var(--surface);
+}
+
+.ticket-info {
+  font-size: 17px;
+}
+
+.inline-form {
+  margin: 0;
+}
+
+.report-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.report-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+
+.report-label {
+  font-size: 15px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.report-value {
+  font-size: 32px;
+  font-weight: 800;
+  margin-top: 8px;
+}
+
+.chart-wrap {
+  max-width: 640px;
+  margin-bottom: 40px;
+}
+
+.chart-wrap-wide {
+  max-width: 960px;
+}
+
+.badge.success {
+  background: var(--success-ghost);
+  color: var(--success);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* Customer widgets + search */
+.customer-widget {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.customer-search {
+  margin-bottom: 24px;
+}
+
+.customer-search__label {
+  display: block;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text-2);
+}
+
+.customer-search__row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 640px;
+}
+
+.customer-search__input {
+  flex: 1 1 320px;
+  min-width: 0;
+  font-size: 18px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border-2);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.customer-search__input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-ghost);
+}
+
+.customer-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.customer-info__chip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 16px;
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.customer-info__label {
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  margin-right: 8px;
+}
+

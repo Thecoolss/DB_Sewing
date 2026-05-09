@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Sewing Shop{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block tools %}
+<div class="tools tools-large">
+    <a class="btn primary btn-large" href="{% url 'admin:shop_order_add' %}">+ New order</a>
+    <a class="btn tab-btn{% if board_tab == 'active' %} primary{% endif %}" href="{% url 'shop:order_board' 'active' %}">Active</a>
+    <a class="btn tab-btn{% if board_tab == 'closed' %} primary{% endif %}" href="{% url 'shop:order_board' 'closed' %}">Closed</a>
+    <a class="btn tab-btn{% if board_tab == 'cancelled' %} primary{% endif %}" href="{% url 'shop:order_board' 'cancelled' %}">Cancelled</a>
+</div>
+{% endblock tools %}
+
+{% block content %}
+<p class="lead-text">Tap <strong>Open</strong> to change the order. High priority is shown first in the Active tab.</p>
+
+<div class="widget-grid">
+{% include "shop/includes/order_widget_cards.html" with cards=cards empty_message="No orders in this tab." %}
+</div>
+{% endblock content %}
