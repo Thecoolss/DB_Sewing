@@ -1,7 +1,5 @@
 from calendar import monthrange
 from datetime import date, timedelta
-from decimal import Decimal
-
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Sum
@@ -182,12 +180,11 @@ def reports_dashboard(request):
     today = timezone.localdate()
     month_start = today.replace(day=1)
     orders_m = Order.objects.filter(order_date__gte=month_start)
-    revenue = (
+    delivered_revenue = (
         Order.objects.filter(
             status=Order.Status.DELIVERED,
             order_date__gte=month_start,
-            total_price__isnull=False,
-        ).aggregate(s=Sum("total_price"))["s"]
+        ).aggregate(s=Sum("deposit_paid"))["s"]
         or 0
     )
     labels = dict(Order.Status.choices)
@@ -201,13 +198,12 @@ def reports_dashboard(request):
         label = f"{start_d.day}–{end_d.day} {start_d.strftime('%b')}"
         w_orders = Order.objects.filter(order_date__range=(start_d, end_d))
         n_orders = w_orders.count()
-        raw_inc = w_orders.aggregate(s=Sum("total_price"))["s"]
-        income = float(raw_inc or Decimal("0"))
+        week_payments = w_orders.aggregate(s=Sum("deposit_paid"))["s"] or 0
         weekly_rows.append(
             {
                 "label": label,
                 "orders": n_orders,
-                "income": income,
+                "week_payments": float(week_payments),
             }
         )
 
@@ -217,7 +213,7 @@ def reports_dashboard(request):
         "page_subtitle": f"This month (from {month_start})",
         "today": today,
         "order_count_month": orders_m.count(),
-        "delivered_revenue": revenue,
+        "delivered_revenue": delivered_revenue,
         "by_status_chart": by_status_chart,
         "weekly_chart": weekly_rows,
     }

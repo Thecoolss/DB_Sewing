@@ -552,6 +552,11 @@ class OrderAdmin(StaffEditableModelAdmin):
         progress = order_board_progress_label(obj)
         url = reverse("admin:shop_order_change", args=[obj.pk])
         price = obj.total_price if obj.total_price is not None else "—"
+        balance = (
+            f"{obj.balance_due:,.2f}"
+            if obj.balance_due is not None
+            else "—"
+        )
         return format_html(
             '<div class="ss-admin-order-card ss-priority-{}">'
             '<a class="ss-admin-order-card__link" href="{}">'
@@ -559,7 +564,7 @@ class OrderAdmin(StaffEditableModelAdmin):
             '<div class="ss-admin-order-card__customer">{}</div>'
             '<div class="ss-admin-order-card__meta">Due {} · {} · {} priority</div>'
             '<div class="ss-admin-order-card__meta">Pipeline: {} · Delivery: {}</div>'
-            '<div class="ss-admin-order-card__meta">Payment: {} · Total: €{}</div>'
+            '<div class="ss-admin-order-card__meta">Payment: {} · Total: €{} · Balance due: €{}</div>'
             '<div class="ss-admin-order-card__hint">Open order →</div>'
             "</a></div>",
             obj.priority,
@@ -573,6 +578,7 @@ class OrderAdmin(StaffEditableModelAdmin):
             dlabel,
             obj.get_payment_status_display(),
             price,
+            balance,
         )
 
     @admin.display(description="Calculated total (€)")

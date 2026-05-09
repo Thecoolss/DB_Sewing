@@ -5,20 +5,19 @@
 {% block page_title %}{{ page_title }}{% endblock page_title %}
 
 {% block content %}
-<p class="lead-text">Figures for <strong>{{ page_subtitle }}</strong> — each bar group is a week within this month (by order date).</p>
-
+<p class="lead-text">Figures for <strong>{{ page_subtitle }}</strong> — each bar group is a week within this month (by order date). Blue bars show the payment total for that week only (sum of <em>deposit paid</em> on orders in that week).</p>
 <div class="report-cards">
     <div class="report-card">
         <div class="report-label">Orders (month)</div>
         <div class="report-value">{{ order_count_month }}</div>
     </div>
     <div class="report-card">
-        <div class="report-label">Delivered revenue (month)</div>
+        <div class="report-label">Payments received — delivered (month)</div>
         <div class="report-value">€{{ delivered_revenue }}</div>
     </div>
 </div>
 
-<h3 class="section-heading">Orders &amp; income by week (this month)</h3>
+<h3 class="section-heading">Orders &amp; payments by week (this month)</h3>
 {{ weekly_chart|json_script:"weekly-chart-data" }}
 <div class="chart-wrap chart-wrap-wide">
     <canvas id="weeklyChart" width="700" height="340" aria-label="Orders and income by week"></canvas>
@@ -50,8 +49,8 @@
                         yAxisID: 'y',
                     },
                     {
-                        label: 'Income (order totals) €',
-                        data: weeklyRaw.map(function (r) { return r.income; }),
+                        label: 'Total paid (weekly) €',
+                        data: weeklyRaw.map(function (r) { return r.week_payments; }),
                         backgroundColor: 'rgba(37, 99, 235, 0.45)',
                         borderColor: 'rgba(37, 99, 235, 1)',
                         borderWidth: 1,
@@ -69,7 +68,7 @@
                             footer: function (items) {
                                 if (!items.length) return '';
                                 return items.some(function (i) { return i.datasetIndex === 1; })
-                                    ? 'Income = sum of order totals (€) for orders placed in that week.'
+                                    ? 'Weekly sum of deposit paid (€) for orders placed in that week only.'
                                     : '';
                             },
                         },
@@ -89,7 +88,7 @@
                         position: 'right',
                         beginAtZero: true,
                         grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Income €' },
+                        title: { display: true, text: 'Paid € (weekly total)' },
                     },
                 },
             },
