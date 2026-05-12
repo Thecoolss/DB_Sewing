@@ -1,7 +1,14 @@
 from calendar import monthrange
 from datetime import date, timedelta
+import json
+import re
+from urllib import error as urlerror
+from urllib import request as urlrequest
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
+from django.db import connection
 from django.db.models import Count, Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -11,6 +18,32 @@ from django.views.decorators.http import require_POST
 
 from .models import Customer, CustomerMeasurement, Delivery, Order, WorkTicket
 from .workflow import advance_ticket_to_next_stage, order_board_progress_label
+
+_SQL_BLOCKED_PATTERN = re.compile(
+    r"\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|"
+    r"comment|vacuum|analyze|execute|call|copy|merge|refresh|security)\b",
+    re.IGNORECASE,
+)
+_SQL_LIMIT_PATTERN = re.compile(r"\blimit\s+\d+\b", re.IGNORECASE)
+
+_ASSISTANT_DECLINE_MESSAGE = "I don't understand the request."
+
+_SQL_ASSISTANT_SCHEMA = """
+Use only these tables and columns:
+- shop_order(id, reference, customer_id, assigned_employee_id, order_date, due_date, priority, status, completed_at, total_price, deposit_paid, payment_status)
+- shop_customer(id, full_name, phone, email, address, notes, preferences, created_at)
+- shop_employee(id, full_name, role, active, phone, specialty_stage)
+- shop_garment(id, order_id, garment_type_id, primary_material_id, quantity, color, unit_price, design_notes)
+- shop_garmenttype(id, name, description, active, base_price)
+- shop_material(id, name, description, unit, kind, price_addon, created_at)
+- shop_workticket(id, ticket_number, garment_id, assigned_worker_id, current_stage, priority, deadline, started_at, completed_at, notes)
+- shop_delivery(id, order_id, method, status, scheduled_date, delivered_date, final_observations)
+- shop_statushistory(id, ticket_id, stage, changed_by_id, changed_at, comments)
+- shop_workflowevent(id, created_at, actor_id, order_id, ticket_id, delivery_id, summary, archived_order_ref)
+- shop_measurement(id, garment_id, name, value, unit, notes)
+- shop_customermeasurement(id, customer_id, name, value, unit, notes)
+- shop_garmentmaterial(id, garment_id, material_id, quantity, notes)
+"""
 
 
 @staff_member_required
@@ -180,11 +213,8 @@ def reports_dashboard(request):
     today = timezone.localdate()
     month_start = today.replace(day=1)
     orders_m = Order.objects.filter(order_date__gte=month_start)
-    delivered_revenue = (
-        Order.objects.filter(
-            status=Order.Status.DELIVERED,
-            order_date__gte=month_start,
-        ).aggregate(s=Sum("deposit_paid"))["s"]
+    month_payments_total = (
+        orders_m.aggregate(s=Sum("deposit_paid"))["s"]
         or 0
     )
     labels = dict(Order.Status.choices)
@@ -213,11 +243,233 @@ def reports_dashboard(request):
         "page_subtitle": f"This month (from {month_start})",
         "today": today,
         "order_count_month": orders_m.count(),
-        "delivered_revenue": delivered_revenue,
+        "month_payments_total": month_payments_total,
         "by_status_chart": by_status_chart,
         "weekly_chart": weekly_rows,
     }
     return render(request, "shop/reports.html", context)
+
+
+def _compute_daily_metrics(day: date) -> dict:
+    day_orders = Order.objects.filter(order_date=day)
+    by_status = [
+        {"status": row["status"], "count": row["n"]}
+        for row in day_orders.values("status").annotate(n=Count("id")).order_by("status")
+    ]
+    totals = day_orders.aggregate(
+        total_value=Sum("total_price"),
+        total_deposits=Sum("deposit_paid"),
+    )
+    return {
+        "date": day.isoformat(),
+        "orders_count": day_orders.count(),
+        "delivered_count": day_orders.filter(status=Order.Status.DELIVERED).count(),
+        "in_production_count": day_orders.filter(status=Order.Status.IN_PRODUCTION).count(),
+        "total_order_value": float(totals["total_value"] or 0),
+        "total_deposits_paid": float(totals["total_deposits"] or 0),
+        "status_breakdown": by_status,
+    }
+
+
+@staff_member_required
+def trigger_daily_metrics(request):
+    today = timezone.localdate()
+    metrics = _compute_daily_metrics(today)
+    return render(
+        request,
+        "shop/daily_metrics.html",
+        {
+            "nav_key": "reports",
+            "page_title": "Daily metrics",
+            "page_subtitle": f"Metrics for {today}",
+            "today": today,
+            "metrics": metrics,
+        },
+    )
+
+
+def _strip_code_fences(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
+        cleaned = re.sub(r"\n?```$", "", cleaned)
+    return cleaned.strip()
+
+
+def _call_gemini_json(system_prompt: str, user_prompt: str, temperature: float = 0.0) -> dict:
+    if not settings.GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY is not configured.")
+
+    model = settings.GEMINI_MODEL.strip() or "gemini-1.5-flash"
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={settings.GEMINI_API_KEY}"
+    )
+    req_body = json.dumps(
+        {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": f"System instructions:\n{system_prompt}\n\nUser request:\n{user_prompt}"}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "temperature": temperature,
+                "responseMimeType": "application/json",
+            },
+        }
+    ).encode("utf-8")
+    req = urlrequest.Request(
+        url=url,
+        data=req_body,
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urlrequest.urlopen(req, timeout=40) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urlerror.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise ValueError(f"Gemini request failed ({exc.code}): {details[:300]}") from exc
+    except urlerror.URLError as exc:
+        raise ValueError(f"Gemini network error: {exc.reason}") from exc
+
+    parts = (
+        payload.get("candidates", [{}])[0]
+        .get("content", {})
+        .get("parts", [])
+    )
+    content = "".join(str(part.get("text", "")) for part in parts)
+    content = _strip_code_fences(content)
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError("AI response was not valid JSON.") from exc
+
+
+def _validate_select_sql(candidate_sql: str) -> str:
+    sql = candidate_sql.strip()
+    if not sql:
+        raise ValueError("The AI did not return a SQL query.")
+    if ";" in sql:
+        raise ValueError("Only a single SELECT query is allowed (no semicolons).")
+    if _SQL_BLOCKED_PATTERN.search(sql):
+        raise ValueError("Only read-only SELECT/WITH queries are allowed.")
+    if not re.match(r"^\s*(select|with)\b", sql, flags=re.IGNORECASE):
+        raise ValueError("Query must start with SELECT or WITH.")
+    if not _SQL_LIMIT_PATTERN.search(sql):
+        sql = f"{sql.rstrip()} LIMIT 100"
+    return sql
+
+
+def _execute_select_query(sql: str) -> tuple[list[str], list[dict]]:
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        cols = [col[0] for col in cursor.description or []]
+        rows = cursor.fetchall()
+    normalized_rows = [dict(zip(cols, row)) for row in rows]
+    return cols, normalized_rows
+
+
+def _assistant_classify_data_question(user_prompt: str) -> bool:
+    """
+    Return True only if the user is asking for shop data answerable via SELECT
+    on the operational schema. Everything else is treated as off-topic.
+    """
+    response = _call_gemini_json(
+        system_prompt=(
+            "You gatekeep a sewing shop database assistant. The database contains "
+            "operational data only: orders, customers, garments, work tickets, deliveries, "
+            "employees, materials, measurements, garment materials, status history, and "
+            "workflow events (see schema hint below).\n\n"
+            "Reply with JSON only, one key:\n"
+            '- {"data_question": true} — the user wants factual answers from this database '
+            "(counts, sums, averages, lists, filters, who/when/what status, dates, names, "
+            "money fields like deposit_paid or total_price).\n"
+            '- {"data_question": false} — general chat, jokes, unrelated topics, coding help, '
+            "homework, medical/legal advice, web search, or anything not grounded in this schema.\n\n"
+            "When in doubt, use false."
+            f"\n\nSchema hint:\n{_SQL_ASSISTANT_SCHEMA}"
+        ),
+        user_prompt=f"User message:\n{user_prompt}",
+        temperature=0.0,
+    )
+    return bool(response.get("data_question"))
+
+
+def _sql_from_natural_language(user_prompt: str) -> str:
+    response = _call_gemini_json(
+        system_prompt=(
+            "You convert natural language into safe PostgreSQL SELECT queries. "
+            "Return JSON: {\"sql\": \"...\"}. "
+            "Rules: SELECT/WITH only, no semicolons, no writes, no DDL, "
+            "prefer explicit columns, include useful aliases."
+        ),
+        user_prompt=(
+            f"Database schema:\n{_SQL_ASSISTANT_SCHEMA}\n\n"
+            f"Question: {user_prompt}\n"
+            "Return JSON with key `sql` only."
+        ),
+        temperature=0.0,
+    )
+    sql = str(response.get("sql", ""))
+    return _validate_select_sql(sql)
+
+
+def _narrate_sql_result(user_prompt: str, sql: str, rows: list[dict]) -> str:
+    safe_rows = rows[:20]
+    response = _call_gemini_json(
+        system_prompt=(
+            "You are an operations analyst. Explain SQL results in plain language "
+            "for shop staff. Keep it short and concrete. "
+            "Return JSON: {\"answer\": \"...\"}."
+        ),
+        user_prompt=(
+            f"Question: {user_prompt}\nSQL: {sql}\n"
+            f"Rows (sample): {json.dumps(safe_rows, default=str)}\n"
+            f"Returned row count: {len(rows)}"
+        ),
+        temperature=0.2,
+    )
+    return str(response.get("answer", "")).strip() or "No explanation generated."
+
+
+@staff_member_required
+def sql_assistant(request):
+    context = {
+        "nav_key": "sql_assistant",
+        "page_title": "Assistant",
+        "page_subtitle": "Ask in plain English; runs read-only queries only.",
+        "today": timezone.localdate(),
+    }
+    if request.method == "POST":
+        prompt = request.POST.get("prompt", "").strip()
+        context["prompt"] = prompt
+        if not prompt:
+            messages.error(request, "Type a question first.")
+            return render(request, "shop/sql_assistant.html", context)
+        try:
+            if not _assistant_classify_data_question(prompt):
+                context["assistant_answer"] = _ASSISTANT_DECLINE_MESSAGE
+            else:
+                sql = _sql_from_natural_language(prompt)
+                columns, rows = _execute_select_query(sql)
+                answer = _narrate_sql_result(prompt, sql, rows)
+                context.update(
+                    {
+                        "generated_sql": sql,
+                        "result_columns": columns,
+                        "result_rows": rows[:30],
+                        "result_row_count": len(rows),
+                        "assistant_answer": answer,
+                    }
+                )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+        except Exception as exc:
+            messages.error(request, f"Query failed: {exc}")
+    return render(request, "shop/sql_assistant.html", context)
 
 
 @staff_member_required

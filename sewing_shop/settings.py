@@ -234,3 +234,13 @@ UNFOLD = {
         },
     ],
 }
+
+# Optional integrations used by staff tools.
+SUPABASE_URL = env("SUPABASE_URL", default="")
+SUPABASE_SERVICE_ROLE_KEY = env("SUPABASE_SERVICE_ROLE_KEY", default="")
+SUPABASE_DAILY_METRICS_FUNCTION = env(
+    "SUPABASE_DAILY_METRICS_FUNCTION",
+    default="daily-order-metrics",
+)
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.5-flash")

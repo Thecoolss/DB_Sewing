@@ -580,6 +580,47 @@ tbody tr:hover td {
   color: var(--muted);
 }
 
+.inline-tools-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline-tools-form .input {
+  width: 260px;
+}
+
+.sql-assistant-form {
+  margin-bottom: 20px;
+}
+
+.sql-prompt {
+  min-height: 120px;
+  margin-bottom: 10px;
+}
+
+.sql-result {
+  margin-top: 18px;
+}
+
+.sql-code {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.sql-rows {
+  display: grid;
+  gap: 8px;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
 /* ── Footer ───────────────────────────────────────── */
 
 .footer {

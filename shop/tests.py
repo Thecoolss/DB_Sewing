@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.test import TestCase
@@ -126,6 +127,39 @@ class WorkflowAutomationTests(TestCase):
         with self.assertRaises(ValidationError):
             self.order.full_clean()
 
+    def test_cancelling_order_adds_notes_and_blocks_ticket_advance(self):
+        ticket = self.garment.create_default_ticket()
+        old_stage = ticket.current_stage
+
+        self.order.status = Order.Status.CANCELLED
+        self.order.save()
+
+        ticket.refresh_from_db()
+        self.order.delivery.refresh_from_db()
+
+        self.assertIn("CANCELLED", ticket.notes)
+        self.assertIn("CANCELLED", self.order.delivery.final_observations)
+
+        ok, _msg = advance_ticket_to_next_stage(ticket)
+        ticket.refresh_from_db()
+        self.assertFalse(ok)
+        self.assertEqual(ticket.current_stage, old_stage)
+
+    def test_delivery_and_ticket_changes_do_not_revive_cancelled_order(self):
+        ticket = self.garment.create_default_ticket()
+        self.order.status = Order.Status.CANCELLED
+        self.order.save()
+
+        delivery = self.order.delivery
+        delivery.status = Delivery.Status.DELIVERED
+        delivery.save()
+
+        ticket.current_stage = WorkTicket.Stage.DELIVERED
+        ticket.save()
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, Order.Status.CANCELLED)
+
     def test_customer_profile_measurements_api(self):
         User = get_user_model()
         user = User.objects.create_user("apistaff", "apistaff@example.com", "secret", is_staff=True)
@@ -141,6 +175,40 @@ class WorkflowAutomationTests(TestCase):
         data = r.json()
         self.assertEqual(len(data["measurements"]), 1)
         self.assertEqual(data["measurements"][0]["name"], "Chest")
+
+
+class AssistantGuardrailTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            "assistantstaff",
+            "assistantstaff@example.com",
+            "secret",
+            is_staff=True,
+        )
+
+    @patch("shop.views._assistant_classify_data_question", return_value=False)
+    def test_assistant_off_topic_returns_fixed_message(self, _mock):
+        self.client.force_login(self.user)
+        r = self.client.post(
+            "/sql-assistant/",
+            {"prompt": "What is the capital of France?"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "understand the request")
+
+    @patch("shop.views._assistant_classify_data_question", return_value=True)
+    @patch("shop.views._sql_from_natural_language", return_value="SELECT 1 AS n")
+    @patch("shop.views._narrate_sql_result", return_value="Exactly one row.")
+    def test_assistant_on_topic_runs_sql_path(self, *_mocks):
+        self.client.force_login(self.user)
+        r = self.client.post(
+            "/sql-assistant/",
+            {"prompt": "How many orders do we have?"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Exactly one row.")
+        self.assertContains(r, "SELECT 1 AS n")
 
 
 class OrderDeleteWorkflowTests(TestCase):

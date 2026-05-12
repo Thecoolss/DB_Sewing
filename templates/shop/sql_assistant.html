@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Assistant | Sewing Shop{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block content %}
+<p class="lead-text">Ask a question about orders, customers, production, or revenue. The assistant generates a read-only SQL query and explains the result.</p>
+
+<form method="post" class="sql-assistant-form">
+    {% csrf_token %}
+    <label for="prompt" class="form-label">Your question</label>
+    <textarea id="prompt" name="prompt" class="input sql-prompt" placeholder="Example: How many overdue orders do we have and what is their total balance due?">{{ prompt|default:"" }}</textarea>
+    <div class="tools">
+        <button type="submit" class="btn primary">Run question</button>
+    </div>
+</form>
+
+{% if assistant_answer %}
+<section class="sql-result">
+    <h3 class="section-heading">Answer</h3>
+    <p>{{ assistant_answer }}</p>
+</section>
+{% endif %}
+
+{% if generated_sql %}
+<section class="sql-result">
+    <h3 class="section-heading">Generated SQL</h3>
+    <pre class="sql-code">{{ generated_sql }}</pre>
+    <p class="muted-text">Rows returned: {{ result_row_count }}</p>
+</section>
+{% endif %}
+
+{% if result_rows %}
+<section class="sql-result">
+    <h3 class="section-heading">Preview (first {{ result_rows|length }} rows)</h3>
+    <div class="sql-rows">
+        {% for row in result_rows %}
+        <pre class="sql-code">{{ row }}</pre>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock content %}

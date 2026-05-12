@@ -30,6 +30,9 @@
             <a class="nav-link{% if nav_key == 'reports' %} active{% endif %}" href="{% url 'shop:reports' %}">
                 <span class="nav-dot"></span> Reports
             </a>
+            <a class="nav-link{% if nav_key == 'sql_assistant' %} active{% endif %}" href="{% url 'shop:sql_assistant' %}">
+                <span class="nav-dot"></span> Assistant
+            </a>
             <a class="nav-link" href="{% url 'admin:index' %}">
                 <span class="nav-dot"></span> Admin (full data)
             </a>

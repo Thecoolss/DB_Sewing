@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Metrics | Sewing Shop{% endblock %}
+{% block page_title %}{{ page_title }}{% endblock page_title %}
+
+{% block tools %}
+<a class="btn" href="{% url 'shop:reports' %}">Back to reports</a>
+{% endblock tools %}
+
+{% block content %}
+<p class="lead-text">Simple Django-only daily metrics page. No external API keys required.</p>
+
+<div class="report-cards">
+    <div class="report-card">
+        <div class="report-label">Orders today</div>
+        <div class="report-value">{{ metrics.orders_count }}</div>
+    </div>
+    <div class="report-card">
+        <div class="report-label">Delivered today</div>
+        <div class="report-value">{{ metrics.delivered_count }}</div>
+    </div>
+    <div class="report-card">
+        <div class="report-label">In production today</div>
+        <div class="report-value">{{ metrics.in_production_count }}</div>
+    </div>
+    <div class="report-card">
+        <div class="report-label">Total order value</div>
+        <div class="report-value">EUR {{ metrics.total_order_value }}</div>
+    </div>
+    <div class="report-card">
+        <div class="report-label">Total deposits paid</div>
+        <div class="report-value">EUR {{ metrics.total_deposits_paid }}</div>
+    </div>
+</div>
+
+<h3 class="section-heading">Status breakdown (today)</h3>
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in metrics.status_breakdown %}
+            <tr>
+                <td>{{ row.status }}</td>
+                <td>{{ row.count }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="2">No orders found for today.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock content %}
