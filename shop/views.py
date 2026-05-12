@@ -3,13 +3,13 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Sum
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import Customer, Delivery, Order, WorkTicket
+from .models import Customer, CustomerMeasurement, Delivery, Order, WorkTicket
 from .workflow import advance_ticket_to_next_stage, order_board_progress_label
 
 
@@ -300,6 +300,17 @@ def order_monitor(request, filter_name):
             "today": today,
         },
     )
+
+
+@staff_member_required
+def customer_profile_measurements_api(request, customer_id):
+    """JSON list of saved profile measurements for order admin (prefill garment inlines)."""
+    get_object_or_404(Customer, pk=customer_id)
+    rows = [
+        {"name": m.name, "value": str(m.value), "unit": m.unit or "cm"}
+        for m in CustomerMeasurement.objects.filter(customer_id=customer_id).order_by("name")
+    ]
+    return JsonResponse({"measurements": rows})
 
 
 @staff_member_required

@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from django import forms
 from django.contrib import admin, messages
@@ -52,9 +53,46 @@ class MeasurementInline(TabularInline):
     extra = 1
 
 
-class GarmentMaterialInline(TabularInline):
-    model = GarmentMaterial
-    extra = 1
+def _euro_label(amount: Decimal) -> str:
+    q = (amount or Decimal("0")).quantize(Decimal("0.01"))
+    return f"€{q:.2f}"
+
+
+class GarmentTypeChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj: GarmentType) -> str:
+        return f"{obj.name} — {_euro_label(obj.base_price)}"
+
+
+class MaterialPriceChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj: Material) -> str:
+        return f"{obj.name} — +{_euro_label(obj.price_addon)}"
+
+
+def _apply_priced_garment_catalog_fields(form: forms.ModelForm) -> None:
+    """Show base price / material surcharge next to names in garment dropdowns."""
+    if "garment_type" in form.fields:
+        f = form.fields["garment_type"]
+        form.fields["garment_type"] = GarmentTypeChoiceField(
+            queryset=GarmentType.objects.filter(active=True).order_by("name"),
+            required=f.required,
+            widget=f.widget,
+            label=f.label,
+            help_text=f.help_text,
+        )
+    if "primary_material" in form.fields:
+        f = form.fields["primary_material"]
+        kwargs = {
+            "queryset": Material.objects.filter(
+                kind__in=[Material.Kind.FABRIC, Material.Kind.TRIM],
+            ).order_by("name"),
+            "required": f.required,
+            "widget": f.widget,
+            "label": f.label,
+            "help_text": f.help_text,
+        }
+        if getattr(f, "empty_label", None) is not None:
+            kwargs["empty_label"] = f.empty_label
+        form.fields["primary_material"] = MaterialPriceChoiceField(**kwargs)
 
 
 class GarmentInlineForm(forms.ModelForm):
@@ -89,10 +127,7 @@ class GarmentInlineForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if "primary_material" in self.fields:
-            self.fields["primary_material"].queryset = Material.objects.filter(
-                kind__in=[Material.Kind.FABRIC, Material.Kind.TRIM],
-            ).order_by("name")
+        _apply_priced_garment_catalog_fields(self)
         if self.instance and self.instance.pk:
             first_measurement = self.instance.measurements.order_by("id").first()
             if first_measurement:
@@ -100,6 +135,18 @@ class GarmentInlineForm(forms.ModelForm):
                 self.fields["initial_measurement_name"].initial = first_measurement.name
                 self.fields["initial_measurement_value"].initial = first_measurement.value
                 self.fields["initial_measurement_unit"].initial = first_measurement.unit
+        elif not self.data:
+            order = getattr(self.instance, "order", None)
+            if order and order.customer_id:
+                prof = (
+                    CustomerMeasurement.objects.filter(customer_id=order.customer_id)
+                    .order_by("name")
+                    .first()
+                )
+                if prof:
+                    self.fields["initial_measurement_name"].initial = prof.name
+                    self.fields["initial_measurement_value"].initial = prof.value
+                    self.fields["initial_measurement_unit"].initial = prof.unit or "cm"
 
     def clean(self):
         cleaned = super().clean()
@@ -135,7 +182,12 @@ class GarmentInline(StackedInline):
         (
             "Initial measurement (optional)",
             {
-                "description": "Captured during order entry and saved to the Measurement table.",
+                "description": (
+                    "Captured during order entry and saved to the Measurement table. "
+                    "If this customer already has profile measurements, the first one is "
+                    "suggested here (and when you pick a customer, empty rows are filled from "
+                    "their profile — change as needed)."
+                ),
                 "fields": (
                     "initial_measurement_id",
                     (
@@ -147,6 +199,39 @@ class GarmentInline(StackedInline):
             },
         ),
     )
+
+
+class GarmentMaterialInlineForm(forms.ModelForm):
+    class Meta:
+        model = GarmentMaterial
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        f = self.fields["material"]
+        self.fields["material"] = MaterialPriceChoiceField(
+            queryset=Material.objects.all().order_by("name"),
+            required=f.required,
+            widget=f.widget,
+            label=f.label,
+            help_text=f.help_text,
+        )
+
+
+class GarmentMaterialInline(TabularInline):
+    model = GarmentMaterial
+    form = GarmentMaterialInlineForm
+    extra = 1
+
+
+class GarmentAdminForm(forms.ModelForm):
+    class Meta:
+        model = Garment
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_priced_garment_catalog_fields(self)
 
 
 class DeliveryInline(StackedInline):
@@ -431,7 +516,10 @@ class OrderAdmin(StaffEditableModelAdmin):
     inlines = (GarmentInline, DeliveryInline)
 
     class Media:
-        js = ("admin/shop/order_pricing.js",)
+        js = (
+            "admin/shop/order_pricing.js",
+            "admin/shop/order_customer_profile_measurements.js",
+        )
     actions = (
         "generate_work_tickets",
         "mark_as_in_production",
@@ -604,13 +692,22 @@ class OrderAdmin(StaffEditableModelAdmin):
     def measurement_overview(self, obj):
         if not obj or not obj.pk:
             return "Save order first."
-        entries = []
+        parts = []
+        if obj.customer_id:
+            profile = list(
+                CustomerMeasurement.objects.filter(customer_id=obj.customer_id).order_by("name")
+            )
+            if profile:
+                line = "; ".join(f"{m.name}: {m.value}{m.unit}" for m in profile)
+                parts.append(f"Customer profile (reference): {line}")
         for garment in obj.garments.prefetch_related("measurements"):
             measurements = ", ".join(
                 f"{m.name}: {m.value}{m.unit}" for m in garment.measurements.all()
             ) or "No measurements yet"
-            entries.append(f"{garment.garment_type}: {measurements}")
-        return format_html_join("<br>", "{}", ((e,) for e in entries)) if entries else "No garments yet."
+            parts.append(f"{garment.garment_type}: {measurements}")
+        if not parts:
+            return "No garments yet."
+        return format_html_join("<br>", "{}", ((p,) for p in parts))
 
     # --- inline save (measurements) ---
 
@@ -722,6 +819,7 @@ class OrderAdmin(StaffEditableModelAdmin):
 
 @admin.register(Garment)
 class GarmentAdmin(StaffEditableModelAdmin):
+    form = GarmentAdminForm
     list_display = ("garment_type", "primary_material", "order", "quantity", "color", "unit_price")
     list_filter = ("garment_type", "primary_material", "color")
     search_fields = ("garment_type__name", "primary_material__name", "order__reference")

@@ -4,7 +4,7 @@ __pycache__/
 db.sqlite3
 .env
 staticfiles/
-
+handoff.md
 # Local-only / coursework materials (not published on GitHub)
 CONTRIBUTING.md
 SECURITY.md

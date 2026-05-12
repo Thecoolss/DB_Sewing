@@ -5,8 +5,11 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
 
+from django.contrib.auth import get_user_model
+
 from .models import (
     Customer,
+    CustomerMeasurement,
     Delivery,
     Employee,
     Garment,
@@ -122,6 +125,22 @@ class WorkflowAutomationTests(TestCase):
         self.order.status = Order.Status.IN_PRODUCTION
         with self.assertRaises(ValidationError):
             self.order.full_clean()
+
+    def test_customer_profile_measurements_api(self):
+        User = get_user_model()
+        user = User.objects.create_user("apistaff", "apistaff@example.com", "secret", is_staff=True)
+        CustomerMeasurement.objects.create(
+            customer=self.customer,
+            name="Chest",
+            value=Decimal("88"),
+            unit="cm",
+        )
+        self.client.force_login(user)
+        r = self.client.get(f"/internal/profile-measurements/{self.customer.pk}/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(len(data["measurements"]), 1)
+        self.assertEqual(data["measurements"][0]["name"], "Chest")
 
 
 class OrderDeleteWorkflowTests(TestCase):
@@ -296,3 +315,16 @@ class RequirementCoverageTests(TestCase):
         ticket.current_stage = WorkTicket.Stage.CUTTING
         ticket.save()
         self.assertEqual(ticket.status_history.count(), before + 1)
+
+    def test_negative_money_values_rejected(self):
+        with self.assertRaises(ValidationError):
+            GarmentType(name="Bad", base_price=Decimal("-1")).full_clean()
+        with self.assertRaises(ValidationError):
+            Material(name="Bad fabric", price_addon=Decimal("-0.50")).full_clean()
+
+    def test_deposit_cannot_exceed_order_total(self):
+        order = self._make_order()
+        order.total_price = Decimal("10.00")
+        order.deposit_paid = Decimal("11.00")
+        with self.assertRaises(ValidationError):
+            order.full_clean()

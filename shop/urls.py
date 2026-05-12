@@ -12,5 +12,10 @@ urlpatterns = [
     path("reports/", views.reports_dashboard, name="reports"),
     path("monitor/<str:filter_name>/", views.order_monitor, name="order_monitor"),
     path("customers/", views.customer_search, name="customer_search"),
+    path(
+        "internal/profile-measurements/<int:customer_id>/",
+        views.customer_profile_measurements_api,
+        name="customer_profile_measurements",
+    ),
     path("customers/<int:customer_id>/history/", views.customer_history, name="customer_history"),
 ]

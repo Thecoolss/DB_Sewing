@@ -3,8 +3,14 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
+
+# Money and counts: disallow negatives at the model layer (admin + ORM create).
+_NONNEG_MONEY = [MinValueValidator(Decimal("0"))]
+_POSITIVE_MONEY = [MinValueValidator(Decimal("0.01"))]
+_POSITIVE_QTY = [MinValueValidator(1)]
 
 
 class Customer(models.Model):
@@ -32,7 +38,11 @@ class CustomerMeasurement(models.Model):
         related_name="profile_measurements",
     )
     name = models.CharField(max_length=80)
-    value = models.DecimalField(max_digits=8, decimal_places=2)
+    value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=_POSITIVE_MONEY,
+    )
     unit = models.CharField(max_length=10, default="cm")
     notes = models.CharField(max_length=255, blank=True)
 
@@ -106,6 +116,7 @@ class Material(models.Model):
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
+        validators=_NONNEG_MONEY,
         help_text="Extra charge when this material is chosen (per garment unit).",
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -125,6 +136,7 @@ class GarmentType(models.Model):
         max_digits=10,
         decimal_places=2,
         default=Decimal("0.00"),
+        validators=_NONNEG_MONEY,
         help_text="Fixed base price for this garment type (before fabric surcharge).",
     )
 
@@ -184,11 +196,18 @@ class Order(models.Model):
         help_text="When on, order total is recalculated from garment types and fabric surcharges.",
     )
     total_price = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=_NONNEG_MONEY,
         help_text="Agreed total price for this order.",
     )
     deposit_paid = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00"),
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=_NONNEG_MONEY,
         help_text="Deposit amount already received.",
     )
     payment_status = models.CharField(
@@ -250,7 +269,11 @@ class Order(models.Model):
         self.apply_payment_status()
 
     def clean(self):
-        if self.due_date < self.order_date:
+        if (
+            self.order_date is not None
+            and self.due_date is not None
+            and self.due_date < self.order_date
+        ):
             raise ValidationError({"due_date": "Due date must be on/after order date."})
 
         if self.assigned_employee and not self.assigned_employee.active:
@@ -283,6 +306,15 @@ class Order(models.Model):
                         "status": "Delivered orders cannot be moved back to an earlier status.",
                     }
                 )
+
+        total = self.total_price
+        dep = self.deposit_paid or Decimal("0.00")
+        if total is not None and dep > total:
+            raise ValidationError(
+                {
+                    "deposit_paid": "Deposit cannot exceed the order total.",
+                },
+            )
 
     def _has_active_tickets(self):
         terminal = {
@@ -321,10 +353,14 @@ class Garment(models.Model):
         related_name="primary_garments",
         help_text="Main material chosen during order entry. Use detailed materials for quantities.",
     )
-    quantity = models.PositiveIntegerField(default=1)
+    quantity = models.PositiveIntegerField(default=1, validators=_POSITIVE_QTY)
     color = models.CharField(max_length=50, blank=True)
     unit_price = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=_NONNEG_MONEY,
         help_text="Price per unit for this garment.",
     )
     design_notes = models.TextField(blank=True)
@@ -396,7 +432,11 @@ class Measurement(models.Model):
         related_name="measurements",
     )
     name = models.CharField(max_length=80)
-    value = models.DecimalField(max_digits=8, decimal_places=2)
+    value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        validators=_POSITIVE_MONEY,
+    )
     unit = models.CharField(max_length=10, default="cm")
     notes = models.CharField(max_length=255, blank=True)
 
@@ -427,6 +467,7 @@ class GarmentMaterial(models.Model):
         max_digits=8,
         decimal_places=2,
         default=Decimal("0.00"),
+        validators=_NONNEG_MONEY,
     )
     notes = models.CharField(max_length=255, blank=True)
 
@@ -650,15 +691,17 @@ class Delivery(models.Model):
                 {"delivered_date": "Delivered date is required once status is Delivered."}
             )
 
-        if self.scheduled_date and self.scheduled_date < self.order.order_date:
-            raise ValidationError(
-                {"scheduled_date": "Scheduled delivery cannot be before the order date."}
-            )
+        od = getattr(self.order, "order_date", None)
+        if od is not None:
+            if self.scheduled_date and self.scheduled_date < od:
+                raise ValidationError(
+                    {"scheduled_date": "Scheduled delivery cannot be before the order date."}
+                )
 
-        if self.delivered_date and self.delivered_date < self.order.order_date:
-            raise ValidationError(
-                {"delivered_date": "Delivered date cannot be before the order date."}
-            )
+            if self.delivered_date and self.delivered_date < od:
+                raise ValidationError(
+                    {"delivered_date": "Delivered date cannot be before the order date."}
+                )
 
 
     def save(self, *args, **kwargs):
