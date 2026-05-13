@@ -3,6 +3,9 @@
 
 {% block title %}Reports | Sewing Shop{% endblock %}
 {% block page_title %}{{ page_title }}{% endblock page_title %}
+{% block tools %}
+<a class="btn primary" href="{% url 'shop:trigger_daily_metrics' %}">Run daily metrics</a>
+{% endblock tools %}
 
 {% block content %}
 <p class="lead-text">Figures for <strong>{{ page_subtitle }}</strong> — each bar group is a week within this month (by order date). Blue bars show the payment total for that week only (sum of <em>deposit paid</em> on orders in that week).</p>
@@ -12,8 +15,8 @@
         <div class="report-value">{{ order_count_month }}</div>
     </div>
     <div class="report-card">
-        <div class="report-label">Payments received — delivered (month)</div>
-        <div class="report-value">€{{ delivered_revenue }}</div>
+        <div class="report-label">Payments received (month, all orders)</div>
+        <div class="report-value">€{{ month_payments_total }}</div>
     </div>
 </div>
 

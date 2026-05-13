@@ -103,6 +103,8 @@ def advance_ticket_to_next_stage(ticket: WorkTicket) -> tuple[bool, str]:
     Move ticket one step forward; assign worker for the NEW stage.
     Returns (success, message).
     """
+    if ticket.garment.order.status == Order.Status.CANCELLED:
+        return False, "Cannot advance ticket because the order is cancelled."
     nxt = next_stage_value(ticket.current_stage)
     if nxt is None:
         return False, "Already at the final stage."

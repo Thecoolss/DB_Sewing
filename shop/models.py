@@ -327,6 +327,13 @@ class Order(models.Model):
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+        previous_status = None
+        if not is_new:
+            previous_status = (
+                Order.objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
         if not self.reference:
             self.reference = f"ORD-{uuid.uuid4().hex[:8].upper()}"
         self.apply_automatic_pricing()
@@ -336,6 +343,29 @@ class Order(models.Model):
         super().save(*args, **kwargs)
         if is_new:
             Delivery.objects.get_or_create(order=self)
+        if self.status == self.Status.CANCELLED and previous_status != self.Status.CANCELLED:
+            self._apply_cancellation_side_effects()
+
+    def _apply_cancellation_side_effects(self):
+        note = (
+            f"Order {self.reference} was marked as CANCELLED on "
+            f"{timezone.localdate().isoformat()}."
+        )
+        for ticket in WorkTicket.objects.filter(garment__order=self):
+            existing = ticket.notes or ""
+            if note in existing:
+                continue
+            ticket.notes = f"{existing}\n{note}".strip() if existing else note
+            ticket.save(update_fields=["notes"])
+
+        delivery = Delivery.objects.filter(order=self).first()
+        if delivery:
+            existing_obs = delivery.final_observations or ""
+            if note not in existing_obs:
+                delivery.final_observations = (
+                    f"{existing_obs}\n{note}".strip() if existing_obs else note
+                )
+                delivery.save(update_fields=["final_observations"])
 
 
 class Garment(models.Model):
@@ -586,6 +616,8 @@ class WorkTicket(models.Model):
 
     def _sync_order_and_delivery(self):
         order = self.garment.order
+        if order.status == Order.Status.CANCELLED:
+            return
         stages = list(
             WorkTicket.objects.filter(garment__order=order)
             .values_list("current_stage", flat=True)
@@ -708,6 +740,9 @@ class Delivery(models.Model):
         if self.status == self.Status.DELIVERED and not self.delivered_date:
             self.delivered_date = timezone.localdate()
         super().save(*args, **kwargs)
+
+        if self.order.status == Order.Status.CANCELLED:
+            return
 
         # Decide the order status that should mirror this delivery state.
         # NOTE: DELIVERED is terminal for the order — never roll an order out of DELIVERED.
